@@ -31,4 +31,4 @@ Atualizar o branch comum
  - git checkout nome-branch-comum  
  - git pull origin nome-branch-comum  
  - git merge nome-do-teu-branch
- - git push nome-branch-comum
+ - git push origin nome-branch-comum
