@@ -20,6 +20,7 @@ Agora estás pronto para trabalhar à vontade
  
 **PASSO 3:** 
 Quando acabares o trabalho 
+ - salvar o trabalho no próprio PC (control+S)
  - git add . 
  - git commit -m "mensagem explicativa do commit" 
  - git push origin nome-do-teu-branch
