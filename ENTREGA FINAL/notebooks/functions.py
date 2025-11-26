@@ -61,6 +61,40 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 12)):
     plt.show()
 
 
+# ----------------- HEATMAPS ----------------- #
+
+def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
+    """
+    Creates a heatmap for the correlation matrix of numeric columns.
+    
+    Parameters:
+        df (DataFrame): The dataset
+        method (str): Correlation method to use (e.g., "pearson", "spearman", "kendall").
+        numeric_cols (list): List of numeric columns to include in the correlation matrix.
+    """
+    corr = df[numeric_cols].corr(method=method).round(2)
+    # Create a mask for the upper triangle
+    mask = np.triu(np.ones_like(corr, dtype=bool))  
+    # Visualize correlation matrix
+    fig = plt.figure(figsize=figsize)
+
+    sns.heatmap(
+    corr,
+    mask=mask,                # hide upper triangle
+    annot=True,               # show values
+    cmap="coolwarm",          # divergent color map
+    center=0,                 # center colormap in 0
+    linewidths=0.5,           # lines between cells to help visualization
+    vmin=-1, vmax=1,          # fix scale
+    square=True               # make cells square-shaped
+    )
+
+    plt.title(f"Correlation Matrix ({method})", fontsize=14, pad=15)
+    plt.tight_layout() # improve layout by reducing overlaps
+    plt.show()
+
+
+
 # ----------------- SCALING ----------------- #
 
 # Function to scale features using different scaling methods
