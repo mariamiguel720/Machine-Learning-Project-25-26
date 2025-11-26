@@ -7,6 +7,8 @@ from math import ceil
 from sklearn.impute import KNNImputer, IterativeImputer
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 
 
 # ----------------- BOXPLOTS ----------------- #
@@ -148,9 +150,9 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
 
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
             'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
-    numerical = data.drop(categorical, axis=1).columns.tolist()
+    numerical = train_set_copy.drop(categorical, axis=1).columns.tolist()
 
-    missing_percentages_df = missing_values_table(data)
+    missing_percentages_df = missing_values_table(train_set_copy)
     low_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] <= threshold]['Feature'].tolist()
     high_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] > threshold]['Feature'].tolist()
 
@@ -159,7 +161,7 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
     # Numerical Variables - Median Imputation
     num_low = [n for n in low_missing_values if n in numerical]
     if num_low:
-        # calculate median from training set
+        # calculate Median from training set
         median_value = train_set_copy[num_low].median()
 
         # fill missing values in train, val, and test sets with train median
@@ -169,9 +171,9 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
     # Categorical Variables - Mode Imputation
     cat_low = [c for c in low_missing_values if c in categorical]
     if cat_low:
-        # calculate mode from training set
+        # calculate Mode from training set
         mode_value = train_set_copy[cat_low].mode().iloc[0]
-        # fill missing values in train, val, and test sets with train mode
+        # fill missing values in train, val, and test sets with train Mode
         for df in [train_set_copy, val_set_copy, test_set_copy]:
             df[cat_low].fillna(mode_value, inplace=True)
     
@@ -197,7 +199,7 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
         elif num_method == 'Iterative':
             # Fit the IterativeImputer on the training set
             iterative_imputer = IterativeImputer(random_state=40111)
-            iterative_imputer.fit(train_copy[num_high])
+            iterative_imputer.fit(train_set_copy[num_high])
 
             # Transform training, validation, and test sets
             for df in [train_set_copy, val_set_copy, test_set_copy]:
@@ -205,7 +207,8 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
                                             columns=num_high,
                                             index=df.index)
         # Random Forest Imputation for Numerical Columns
-        elif num_method == 'RF'
+        elif num_method == 'RF':
+            for col in num_high:
                 not_missing = train_set_copy[train_set_copy[col].notna()]
                 missing = train_set_copy[train_set_copy[col].isna()]
                 if not not_missing.empty:
