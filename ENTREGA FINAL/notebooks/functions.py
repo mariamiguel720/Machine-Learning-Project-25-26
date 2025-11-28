@@ -190,10 +190,57 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
     low_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] <= threshold]['Feature'].tolist()
     high_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] > threshold]['Feature'].tolist()
 
+    # Function to impute missing values based on specified methods
+def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5.0, neighbors=5):
+
+    """
+    Impute missing values in train_set, val_set, test_set datasets.
+
+    Parameters:
+        data: original dataframe (used for missing percentages)
+        train_set, val_set, test_set: pd.DataFrame
+        num_method: method for high missing numerical columns ('KNN', 'Iterative', 'RF')
+        cat_method: method for high missing categorical columns ('mode', 'RF')
+        threshold: % below which missing values are considered low
+        neighbors: n_neighbors for KNN
+
+    Returns:
+        train_set_copy, val_set_copy, test_set_copy: the dataframes with imputed values
+    """
+
+    # Create copies of the training and validation datasets
+    train_set_copy = train_set.copy()
+    val_set_copy = val_set.copy()
+    test_set_copy = test_set.copy()
+
+    # Identify categorical and numerical columns
+    categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
+            'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+    numerical = train_set_copy.drop(categorical, axis=1).columns.tolist()
+
+    # Get missing percentages from training set
+    missing_percentages_df = missing_values_table(train_set_copy)
+    low_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] <= threshold]['Feature'].tolist()
+    high_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] > threshold]['Feature'].tolist()
+
     # -------------  LOW MISSING  ------------- #
     
+    # for col in low_missing_values:
+    #     if col in numerical:
+    #         median_value = train_set_copy[col].median()
+    #         for df in [train_set_copy, val_set_copy, test_set_copy]:
+    #             df[col].fillna(median_value, inplace=True)
+
+    #     elif col in categorical:
+    #         mode_value = train_set_copy[col].mode().iloc[0]
+    #         for df in [train_set_copy, val_set_copy, test_set_copy]:
+    #             df[col].fillna(mode_value, inplace=True)
+
+    # for col in high_missing_values:
+
+
     # Numerical Variables - Median Imputation
-    num_low = [n for n in low_missing_values if n in numerical]
+    num_low = [n for n in low_missing_values if n in numerical] # list of numerical columns with low missing
     if num_low:
         # calculate Median from training set
         median_value = train_set_copy[num_low].median()
@@ -203,7 +250,7 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
             df[num_low].fillna(median_value, inplace=True)
 
     # Categorical Variables - Mode Imputation
-    cat_low = [c for c in low_missing_values if c in categorical]
+    cat_low = [c for c in low_missing_values if c in categorical] # list of categorical columns with low missing
     if cat_low:
         # calculate Mode from training set
         mode_value = train_set_copy[cat_low].mode().iloc[0]
@@ -220,7 +267,7 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
         # KNN Imputation
         if num_method == 'KNN':
             # Fit the KNNImputer on the training set
-            knn_imputer = KNNImputer(n_neighbors=neighbors)
+            knn_imputer = KNNImputer(n_neighbors=neighbors, weights='distance')
             knn_imputer.fit(train_set_copy[num_high])
 
             # Transform training, validation, and test sets
@@ -240,6 +287,7 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
                 df[num_high] = pd.DataFrame(iterative_imputer.transform(df[num_high]),
                                             columns=num_high,
                                             index=df.index)
+                
         # Random Forest Imputation for Numerical Columns
         elif num_method == 'RF':
             for col in num_high:
