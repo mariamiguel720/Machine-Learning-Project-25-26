@@ -4,11 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from math import ceil
-from sklearn.impute import KNNImputer, IterativeImputer
+from sklearn.impute import KNNImputer #,IterativeImputer
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, StandardScaler, RobustScaler
+#from sklearn.experimental import enable_iterative_imputer
+#from sklearn.impute import IterativeImputer
 
 
 # ----------------- BOXPLOTS ----------------- #
@@ -93,6 +93,40 @@ def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
     plt.tight_layout() # improve layout by reducing overlaps
     plt.show()
 
+
+# ----------------- ENCODING ----------------- #
+
+# Function to encode categorical features using One-Hot and Ordinal Encoding
+def encoding_features(df_fit, df_to_apply, ordinal_cols=None, one_hot_cols=None,):
+    """ Encode categorical features using One-Hot and Ordinal Encoding. 
+    
+    Parameters:
+    df_fit: DataFrame to fit the encoders (training set)
+    df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
+    one_hot_cols: List of columns to use One-Hot Encoding
+    ordinal_cols: List of columns to use Ordinal Encoding
+    """
+
+    # -------- ORDINAL ENCODING --------
+    if ordinal_cols:
+        method1 = OrdinalEncoder()
+        ordinal_fit = method1.fit(df_fit[ordinal_cols])
+        df_to_apply[ordinal_cols] = ordinal_fit.transform(df_to_apply[ordinal_cols])
+
+    # -------- ONE HOT ENCODING --------
+    if one_hot_cols:
+        method2 = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
+        onehot_fit = method2.fit(df_fit[one_hot_cols])
+        onehot_transformed = onehot_fit.transform(df_to_apply[one_hot_cols])
+
+        one_hot_feat_names = onehot_fit.get_feature_names_out(one_hot_cols)
+        encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+
+        # Drop original categorical columns & concatenate encoded ones
+        df_to_apply = df_to_apply.drop(columns=one_hot_cols)
+        df_to_apply = pd.concat([df_to_apply, encoded_df], axis=1)
+        
+    return df_to_apply
 
 
 # ----------------- SCALING ----------------- #
@@ -276,17 +310,17 @@ def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5
                                             columns=num_high,
                                             index=df.index)
                    
-        # MICE Imputation
-        elif num_method == 'Iterative':
-            # Fit the IterativeImputer on the training set
-            iterative_imputer = IterativeImputer(random_state=40111)
-            iterative_imputer.fit(train_set_copy[num_high])
+        # # MICE Imputation
+        # elif num_method == 'Iterative':
+        #     # Fit the IterativeImputer on the training set
+        #     iterative_imputer = IterativeImputer(random_state=40111)
+        #     iterative_imputer.fit(train_set_copy[num_high])
 
-            # Transform training, validation, and test sets
-            for df in [train_set_copy, val_set_copy, test_set_copy]:
-                df[num_high] = pd.DataFrame(iterative_imputer.transform(df[num_high]),
-                                            columns=num_high,
-                                            index=df.index)
+        #     # Transform training, validation, and test sets
+        #     for df in [train_set_copy, val_set_copy, test_set_copy]:
+        #         df[num_high] = pd.DataFrame(iterative_imputer.transform(df[num_high]),
+        #                                     columns=num_high,
+        #                                     index=df.index)
                 
         # Random Forest Imputation for Numerical Columns
         elif num_method == 'RF':
