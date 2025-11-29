@@ -64,14 +64,14 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
 
 # ----------------- OUTLIERS SUMMARY ----------------- #
 
-def outlier_summary(df, metric_cols):
+def outlier_summary(df_to_apply, metric_cols):
     """Generates a summary table of outliers for each numeric column using IQR method."""
 
     summary = []
 
     for col in metric_cols:
-        Q1 = df[col].quantile(0.25)
-        Q3 = df[col].quantile(0.75)
+        Q1 = df_to_apply[col].quantile(0.25)
+        Q3 = df_to_apply[col].quantile(0.75)
         IQR = Q3 - Q1
 
         # Calculate bounds for outliers
@@ -79,10 +79,10 @@ def outlier_summary(df, metric_cols):
         upper_bound = Q3 + 1.5 * IQR
 
         # Boolean mask for outliers
-        outliers = (df[col] < lower_bound) | (df[col] > upper_bound)
+        outliers = (df_to_apply[col] < lower_bound) | (df_to_apply[col] > upper_bound)
 
         total_outliers = outliers.sum()
-        pct_outliers = 100 * total_outliers / len(df)
+        pct_outliers = 100 * total_outliers / len(df_to_apply)
 
         summary.append({
             "Column": col,
@@ -95,17 +95,17 @@ def outlier_summary(df, metric_cols):
 
 # ----------------- OUTLIERS TREATMENT ----------------- #
 
-def treat_outliers_custom(df, col_thresholds):
+def treat_outliers_custom(df_to_apply, col_thresholds):
     """
     Caps outliers per column based on custom IQR multipliers or manual bounds.
     """
     
-    df_clean = df.copy()
+    df_clean = df_to_apply.copy()
 
     for col, rules in col_thresholds.items():
         # Compute quartiles and IQR
-        q1 = df[col].quantile(0.25)
-        q3 = df[col].quantile(0.75)
+        q1 = df_clean[col].quantile(0.25)
+        q3 = df_clean[col].quantile(0.75)
         iqr = q3 - q1
 
         # Use IQR multiplier OR manual bounds
@@ -301,4 +301,46 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
                                             columns=[col],
                                             index=df_to_apply.index)
     return df_to_apply
+
+
+# ----------------- DATA PREPARATION COMPILATION ----------------- #
+
+def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method):
+# def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method, neighbors=5):
+
+    """
+    Compiles data preparation steps: outliers treatment, encoding, scaling, and missing values imputation.
+    Parameters:
+    df_fit: DataFrame to fit the transformations (training set)
+    df_to_apply: DataFrame to apply the transformations (training/validation/test set)
+    col_thresholds: Dictionary with outlier treatment rules per column
+    ordinal_cols: List of columns to use Ordinal Encoding
+    one_hot_cols: List of columns to use One-Hot Encoding
+    metric_cols: List of numeric columns to scale
+    scaling_method: Method to use for scaling (e.g., 'standard', 'minmax')
+    """
+
+    # Criar função de correção dados manuais
+    #df_to_apply = correct_values(parametros)
+
+    # Outliers Treatment
+    df_to_apply = treat_outliers_custom(df_to_apply, col_thresholds)
+
+    # Encoding
+    df_to_apply = encoding_features(df_fit, df_to_apply, ordinal_cols, one_hot_cols)
+
+    # Scaling
+    scaled_metrics = scaling_features(df_fit, df_to_apply, metric_cols, scaling_method)
+
+    # Missing Values Imputation
+    df_to_apply = simple_imputation(df_fit, df_to_apply)
+    #df_to_apply = knn_imputation(df_fit, df_to_apply, neighbors=5)
+
+    return df_to_apply
+
+
+# ----------------- CORRECT VALUES ----------------- #
+
+#def correct_values(train):
+
 
