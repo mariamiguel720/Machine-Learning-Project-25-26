@@ -185,11 +185,10 @@ def missing_values_table(df):
 
 
 # Function to impute missing values based on specified methods
-def imputation(df_fit, df_to_apply, impute_method, scaling_method, threshold=5.0, neighbors=5):
+def imputation(df_fit, df_to_apply, impute_method=None, scaling_method=None, threshold=5.0, neighbors=5):
 
-    """
-    Impute missing values in train_set, val_set, test_set datasets.
-
+    """ 
+    Imputes missing values in the df_to_apply.
     Parameters:
         df_fit: original dataframe (used for missing percentages) and to fit imputation models
         df_to_apply: dataframe to apply the imputation
@@ -218,7 +217,7 @@ def imputation(df_fit, df_to_apply, impute_method, scaling_method, threshold=5.0
     
     # -------------  LOW MISSING  ------------- #
     
-    for col in low_missing_values or method is None: # Impute using Median/Mode
+    for col in low_missing_values or impute_method is None: # Impute using Median/Mode
         if col in numerical:
             median_value = df_fit[col].median()
             # fill missing values in the df to apply with train median
@@ -232,11 +231,11 @@ def imputation(df_fit, df_to_apply, impute_method, scaling_method, threshold=5.0
 
     # -------------  HIGH MISSING  ------------- #
 
-    for col in high_missing_values and method is not None: # Impute using specified method
+    for col in high_missing_values and impute_method is not None: # Impute using specified method
         if impute_method == "KNN":
             # Scale categorical features before KNN Imputation because KNN is distance-based and only works with numerical data
-            scaling_features(df_fit[categorical], method=scaling_method)
-            scaling_features(df_to_apply[categorical], method=scaling_method)
+            encoding_features(df_fit[categorical], method=scaling_method)
+            encoding_features(df_to_apply[categorical], method=scaling_method)
 
             # Fit the KNNImputer on the training set
             knn_imputer = KNNImputer(n_neighbors=neighbors, weights='distance')
@@ -246,6 +245,6 @@ def imputation(df_fit, df_to_apply, impute_method, scaling_method, threshold=5.0
                                             columns=[col],
                                             index=df_to_apply.index)
         
-        elif impute_method == "RF":
+        # elif impute_method == "RF":
         
     return df_to_apply
