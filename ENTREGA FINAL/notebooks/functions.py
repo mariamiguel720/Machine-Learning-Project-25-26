@@ -185,66 +185,58 @@ def missing_values_table(df):
 
 
 # Function to impute missing values based on specified methods
-def imputation(df_fit, df_to_apply, impute_method=None, scaling_method=None, threshold=5.0, neighbors=5):
-
+def simple_imputation(df_fit, df_to_apply, threshold=5.0):
     """ 
-    Imputes missing values in the df_to_apply.
+    Imputes missing values in the dataframe using median/mode for missing values.
     Parameters:
-        df_fit: original dataframe (used for missing percentages) and to fit imputation models
+        df_fit: dataframe to fit the imputation
         df_to_apply: dataframe to apply the imputation
-        impute_method: method choosen for treatment of high missing values. When None all missing values are treated with median/mode.
-        scaling_method: scaling method to use on categorical features before KNN imputation
         threshold: % below which missing values are considered low
-        neighbors: n_neighbors for KNN
-
-    Returns:
-        df_to_apply: dataframe with imputed missing values
     """
-
-    # Create copies of the training and validation datasets
+    # make a copy of the dataframe to avoid modifying the original data
     df_fit = df_fit.copy()
     df_to_apply = df_to_apply.copy()
 
-
+    # define categorical and numerical columns
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-            'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
     numerical = df_fit.drop(categorical, axis=1).columns.tolist()
 
-    missing_percentages_df = missing_values_table(df_fit)
-    low_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] <= threshold]['Feature'].tolist()
-    high_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] > threshold]['Feature'].tolist()
+    for col in numerical:
+        median_value = df_fit[col].median()
+        df_to_apply[col].fillna(median_value, inplace=True)
+    for col in categorical:
+        mode_value = df_fit[col].mode().iloc[0]
+        df_to_apply[col].fillna(mode_value, inplace=True)
 
-    
-    # -------------  LOW MISSING  ------------- #
-    
-    for col in low_missing_values or impute_method is None: # Impute using Median/Mode
-        if col in numerical:
-            median_value = df_fit[col].median()
-            # fill missing values in the df to apply with train median
-            df_to_apply[col].fillna(median_value, inplace=True)
-
-        elif col in categorical:
-            mode_value = df_fit[col].mode().iloc[0]
-            # fill missing values in the df to apply with train mode
-            df_to_apply[col].fillna(mode_value, inplace=True)
+    return df_to_apply
 
 
-    # -------------  HIGH MISSING  ------------- #
+def knn_imputation(df_fit, df_to_apply, neighbors=5):
+    """ 
+    Imputes missing values in the df_to_apply using KNN imputation.
+    Parameters:
+        df_fit: train dataframe (used to fit imputation models)
+        df_to_apply: dataframe to apply the imputation
+        neighbors: n_neighbors for KNN
+    """
 
-    for col in high_missing_values and impute_method is not None: # Impute using specified method
-        if impute_method == "KNN":
-            # Scale categorical features before KNN Imputation because KNN is distance-based and only works with numerical data
-            encoding_features(df_fit[categorical], method=scaling_method)
-            encoding_features(df_to_apply[categorical], method=scaling_method)
+    # make a copy of the dataframe to avoid modifying the original data
+    df_fit = df_fit.copy()
+    df_to_apply = df_to_apply.copy()
 
-            # Fit the KNNImputer on the training set
+    # define categorical and numerical columns
+    categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
+                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+    numerical = df_fit.drop(categorical, axis=1).columns.tolist()
+
+    for col in numerical:
+     # Fit the KNNImputer on the training set
             knn_imputer = KNNImputer(n_neighbors=neighbors, weights='distance')
             knn_imputer.fit(df_fit[[col]])
             # Transform df to apply 
             df_to_apply[[col]] = pd.DataFrame(knn_imputer.transform(df_to_apply[[col]]),
                                             columns=[col],
                                             index=df_to_apply.index)
-        
-        # elif impute_method == "RF":
-        
     return df_to_apply
+
