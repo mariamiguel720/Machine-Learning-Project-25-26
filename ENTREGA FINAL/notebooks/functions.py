@@ -14,7 +14,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, S
 # ----------------- BOXPLOTS ----------------- #
 
 # Function to create boxplots for numeric columns with consistent formatting
-def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 12)):
+def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
     """
     Creates boxplots for numeric columns with consistent formatting.
     
@@ -59,6 +59,68 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 12)):
     plt.suptitle("Boxplots of Numeric Features", fontsize=18, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.show()
+
+
+
+# ----------------- OUTLIERS SUMMARY ----------------- #
+
+def outlier_summary(df, metric_cols):
+    """Generates a summary table of outliers for each numeric column using IQR method."""
+
+    summary = []
+
+    for col in metric_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+
+        # Calculate bounds for outliers
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+
+        # Boolean mask for outliers
+        outliers = (df[col] < lower_bound) | (df[col] > upper_bound)
+
+        total_outliers = outliers.sum()
+        pct_outliers = 100 * total_outliers / len(df)
+
+        summary.append({
+            "Column": col,
+            "Total Outliers": total_outliers,
+            "Percentage (%)": round(pct_outliers, 2)
+        })
+
+    return pd.DataFrame(summary)
+
+
+# ----------------- OUTLIERS TREATMENT ----------------- #
+
+def treat_outliers_custom(df, col_thresholds):
+    """
+    Caps outliers per column based on custom IQR multipliers or manual bounds.
+    """
+    
+    df_clean = df.copy()
+
+    for col, rules in col_thresholds.items():
+        # Compute quartiles and IQR
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+
+        # Use IQR multiplier OR manual bounds
+        if "iqr_mult" in rules:
+            mult = rules['iqr_mult']
+            lower = q1 - mult * iqr
+            upper = q3 + mult * iqr
+        else:
+            lower = rules.get('lower', -np.inf)
+            upper = rules.get('upper', np.inf)
+
+        # Cap the outliers
+        df_clean[col] = df_clean[col].clip(lower=lower, upper=upper)
+
+    return df_clean
 
 
 # ----------------- HEATMAPS ----------------- #
@@ -132,7 +194,7 @@ def encoding_features(df_fit, df_to_apply, ordinal_cols=None, one_hot_cols=None,
 # ----------------- SCALING ----------------- #
 
 # Function to scale features using different scaling methods
-def scaling_features(df_fit, df_to_apply, method):
+def scaling_features(df_fit, df_to_apply, metric_cols, method):
     """ Scales the features of the train and validation sets according to the specified method.
     Args:
         df_fit (pd.DataFrame): The dataframe to fit the scaler.
@@ -145,23 +207,23 @@ def scaling_features(df_fit, df_to_apply, method):
 
     if method == 'minmax':
         #scale your data using MinMaxScaler[0,1]
-        min_max = MinMaxScaler().fit(df_fit)
+        min_max = MinMaxScaler().fit(df_fit[metric_cols])
         # Transform the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = min_max.transform(df_to_apply)
+        scaled_df_to_apply = min_max.transform(df_to_apply[metric_cols])
     elif method == 'minmax2':
         # Create a MinMaxScaler instance that will range between -1 and 1 and fit to your train data
-        min_max = MinMaxScaler(feature_range=(-1, 1)).fit(df_fit)
+        min_max = MinMaxScaler(feature_range=(-1, 1)).fit(df_fit[metric_cols])
         # Transform your the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = min_max.transform(df_to_apply)
+        scaled_df_to_apply = min_max.transform(df_to_apply[metric_cols])
     elif method == 'standard':
         # Create a StandardScaler instance and fit to your train data
-        standard = StandardScaler().fit(df_fit)
+        standard = StandardScaler().fit(df_fit[metric_cols])
         # Transform your the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = standard.transform(df_to_apply)
+        scaled_df_to_apply = standard.transform(df_to_apply[metric_cols])
     else: 
-        robust = RobustScaler().fit(df_fit)
+        robust = RobustScaler().fit(df_fit[metric_cols])
         # Transform your the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = robust.transform(df_to_apply)
+        scaled_df_to_apply = robust.transform(df_to_apply[metric_cols])
     return scaled_df_to_apply
 
 # ----------------- MISSING VALUES ----------------- #
@@ -185,7 +247,7 @@ def missing_values_table(df):
 
 
 # Function to impute missing values based on specified methods
-def simple_imputation(df_fit, df_to_apply, threshold=5.0):
+def simple_imputation(df_fit, df_to_apply):
     """ 
     Imputes missing values in the dataframe using median/mode for missing values.
     Parameters:
@@ -204,10 +266,10 @@ def simple_imputation(df_fit, df_to_apply, threshold=5.0):
 
     for col in numerical:
         median_value = df_fit[col].median()
-        df_to_apply[col].fillna(median_value, inplace=True)
+        df_to_apply[col] = df_to_apply[col].fillna(median_value)
     for col in categorical:
         mode_value = df_fit[col].mode().iloc[0]
-        df_to_apply[col].fillna(mode_value, inplace=True)
+        df_to_apply[col] = df_to_apply[col].fillna(mode_value)
 
     return df_to_apply
 
