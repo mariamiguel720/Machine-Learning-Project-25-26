@@ -405,6 +405,7 @@ def comparison_metrics(model, X_train, y_train, X_val, y_val):
     comparison_df = pd.DataFrame({
         'Metric': list(metrics_train.keys()),
         'Train': list(metrics_train.values()),
-        'Validation': list(metrics_val.values())
+        'Validation': list(metrics_val.values()),
+        'Iteration': model.n_iter_
     })
     return comparison_df
