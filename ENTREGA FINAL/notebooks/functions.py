@@ -10,6 +10,10 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, S
 #from sklearn.experimental import enable_iterative_imputer
 #from sklearn.impute import IterativeImputer
 
+#Model evaluation
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, median_absolute_error, mean_absolute_percentage_error
+import statsmodels.api as sm
+
 
 # ----------------- BOXPLOTS ----------------- #
 
