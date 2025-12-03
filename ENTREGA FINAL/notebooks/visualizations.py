@@ -27,12 +27,12 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
         n_rows, n_cols, 
         figsize=(figsize[0], figsize[1]) 
     )
-    axes = axes.flatten()
+    axes = axes.flatten() # Transform 2D array of axes to 1D for easy iteration
 
-    sns.set_theme(style="whitegrid", palette="pastel")
+    sns.set_theme(style="whitegrid", palette="pastel") # Set seaborn theme for aesthetics
 
-    for i, col in enumerate(numeric_cols):
-        ax = axes[i]
+    for i, col in enumerate(numeric_cols): # Iterate over numeric columns 
+        ax = axes[i] # Current axis for subplot
 
         sns.boxplot(
             x=df[col], # Data for the boxplot
@@ -113,7 +113,7 @@ def outlier_summary(df_to_apply, metric_cols):
 
     return pd.DataFrame(summary)
 
-# ----------------- VISUALISE MISSING VALUES ----------------- #
+# ----------------- VISUALIZE MISSING VALUES ----------------- #
 
 # Function to calculate the percentage of missing values in each column and return a DataFrame
 def missing_values_table(df):

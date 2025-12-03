@@ -84,6 +84,7 @@ def scaling_features(df_fit, df_to_apply, metric_cols, method):
     Args:
         df_fit (pd.DataFrame): The dataframe to fit the scaler.
         df_to_apply (pd.DataFrame): The dataframe to apply the scaler.
+        metric_cols (list): List of numeric columns to scale.
         method (str): The scaling method to use. Options are 'minmax' - between 0 and 1, 'minmax2' - between -1 and 1, 
         'standard', and 'robust'.
     Returns:
@@ -129,7 +130,7 @@ def simple_imputation(df_fit, df_to_apply):
 
     # define categorical and numerical columns
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+                   'is_hybrid_or_electric', 'is_automatic', 'is_first_owner']
     numerical = df_fit.drop(categorical, axis=1).columns.tolist()
 
     for col in numerical:
@@ -158,7 +159,7 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
 
     # define categorical and numerical columns
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+                   'is_hybrid_or_electric', 'is_automatic', 'is_first_owner']
     numerical = df_fit.drop(categorical, axis=1).columns.tolist()
 
     for col in numerical:
