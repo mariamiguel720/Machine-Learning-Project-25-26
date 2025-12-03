@@ -10,7 +10,7 @@ import numpy as np
 # Function to create boxplots for numeric columns with consistent formatting
 def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
     """
-    Creates boxplots for numeric columns with consistent formatting.
+    Creates boxplots for numeric columns.
     
     Parameters:
         df (DataFrame): The dataset
@@ -19,39 +19,36 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
         figsize (tuple): Base figure size; height is scaled dynamically
     """
 
-    n_features = len(numeric_cols)
-    n_rows = ceil(n_features / n_cols)
+    n_features = len(numeric_cols) # Total number of numeric features
+    n_rows = ceil(n_features / n_cols) # Calculate number of rows needed using ceiling to round up
 
     # Dynamic height scaling
     fig, axes = plt.subplots(
         n_rows, n_cols, 
-        figsize=(figsize[0], figsize[1])
+        figsize=(figsize[0], figsize[1]) 
     )
-    axes = axes.flatten()
+    axes = axes.flatten() # Transform 2D array of axes to 1D for easy iteration
 
-    sns.set_theme(style="whitegrid", palette="pastel")
+    sns.set_theme(style="whitegrid", palette="pastel") # Set seaborn theme for aesthetics
 
-    for i, col in enumerate(numeric_cols):
-        ax = axes[i]
+    for i, col in enumerate(numeric_cols): # Iterate over numeric columns 
+        ax = axes[i] # Current axis for subplot
 
         sns.boxplot(
-            x=df[col],
-            ax=ax,
-            color='skyblue',
-            medianprops={"color": "darkblue", "linewidth": 2},
-            boxprops={"alpha": 0.7}
+            x=df[col], # Data for the boxplot
+            ax=ax, # Axis to plot on
+            color='skyblue', # Box color
+            medianprops={"color": "darkblue", "linewidth": 2}, # Used to style the median line for better visibility
         )
 
-        ax.set_title(col, fontsize=12, fontweight="bold")
-        ax.set_xlabel("")
-        ax.grid(True, linestyle="--", alpha=0.4)
+        ax.set_title(col, fontsize=12, fontweight="bold") # Bold title for each subplot
 
     # Remove unused axes
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
 
-    plt.suptitle("Boxplots of Numeric Features", fontsize=18, fontweight="bold")
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.suptitle("Boxplots of Numeric Features", fontsize=18, fontweight="bold") # Overall title
+    plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust layout to make room for suptitle
     plt.show()
 
 # ----------------- HEATMAPS ----------------- #
@@ -91,9 +88,9 @@ def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
 def outlier_summary(df_to_apply, metric_cols):
     """Generates a summary table of outliers for each numeric column using IQR method."""
 
-    summary = []
+    summary = [] # List to hold summary data
 
-    for col in metric_cols:
+    for col in metric_cols:  # Iterate over each numeric column
         Q1 = df_to_apply[col].quantile(0.25)
         Q3 = df_to_apply[col].quantile(0.75)
         IQR = Q3 - Q1
@@ -116,7 +113,7 @@ def outlier_summary(df_to_apply, metric_cols):
 
     return pd.DataFrame(summary)
 
-# ----------------- VISUALISE MISSING VALUES ----------------- #
+# ----------------- VISUALIZE MISSING VALUES ----------------- #
 
 # Function to calculate the percentage of missing values in each column and return a DataFrame
 def missing_values_table(df):

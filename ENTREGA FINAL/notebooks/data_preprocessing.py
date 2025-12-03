@@ -2,20 +2,22 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pyparsing import col
 import seaborn as sns
 from math import ceil
-from sklearn.impute import KNNImputer #,IterativeImputer
+from sklearn.impute import KNNImputer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, StandardScaler, RobustScaler
-#from sklearn.experimental import enable_iterative_imputer
-#from sklearn.impute import IterativeImputer
 
+
+# ----------------- CORRECT VALUES ----------------- #
+
+#def correct_values(train):
 
 # ----------------- OUTLIERS TREATMENT ----------------- #
 
-def treat_outliers_custom(df_to_apply, col_thresholds):
-    """
+""" def treat_outliers_custom(df_to_apply, col_thresholds):
     Caps outliers per column based on custom IQR multipliers or manual bounds.
-    """
+  
     
     df_clean = df_to_apply.copy()
 
@@ -39,39 +41,67 @@ def treat_outliers_custom(df_to_apply, col_thresholds):
 
     return df_clean
 
+# This isn't part of the function, but a default of how to define the rules
+column_rules = {
+    'year': {'lower': 1990, 'upper': 2025},
+    'mileage': {'iqr_mult': 2.2},
+    'tax': {'iqr_mult': 2.0},
+    'mpg': {'iqr_mult': 2.2},
+    'engineSize': {'lower': 0.9, 'upper': 5.5},
+    'previousOwners': {'lower': 0, 'upper': 8}
+} """
+
+def treat_outliers_custom(df_fit, df_to_apply):
+
+    df_to_apply = df_to_apply.copy()
+
+    # fixed limits
+    df_to_apply['year'] = df_to_apply['year'].clip(lower=1990, upper=2020)
+    df_to_apply['engineSize'] = df_to_apply['engineSize'].clip(lower=0.9, upper=5.5)
+    df_to_apply['previousOwners'] = df_to_apply['previousOwners'].clip(lower=0, upper=8)
+
+    # IQR based limits
+    for col in ['mileage', 'tax', 'mpg']:
+        # Calculate IQR based limits from df_fit
+        q1 = df_fit[col].quantile(0.25)
+        q3 = df_fit[col].quantile(0.75)
+        iqr = q3 - q1
+        lower = q1 - 2.2 * iqr
+        upper = q3 + 2.2 * iqr
+
+        # Cap the outliers
+        df_to_apply[col] = df_to_apply[col].clip(lower=lower, upper=upper)
+
+    return df_to_apply
+
 # ----------------- ENCODING ----------------- #
 
 # Function to encode categorical features using One-Hot and Ordinal Encoding
-def encoding_features(df_fit, df_to_apply, ordinal_cols=None, one_hot_cols=None,):
-    """ Encode categorical features using One-Hot and Ordinal Encoding. 
+def encoding_features(df_fit, df_to_apply, one_hot_cols=None):
+    """ Encode categorical features using One-Hot. 
     
     Parameters:
     df_fit: DataFrame to fit the encoders (training set)
     df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
     one_hot_cols: List of columns to use One-Hot Encoding
-    ordinal_cols: List of columns to use Ordinal Encoding
     """
 
-    # -------- ORDINAL ENCODING --------
-    if ordinal_cols:
-        method1 = OrdinalEncoder()
-        ordinal_fit = method1.fit(df_fit[ordinal_cols])
-        df_to_apply[ordinal_cols] = ordinal_fit.transform(df_to_apply[ordinal_cols])
+    df_transformed = df_to_apply.copy()
 
-    # -------- ONE HOT ENCODING --------
-    if one_hot_cols:
-        method2 = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
-        onehot_fit = method2.fit(df_fit[one_hot_cols])
-        onehot_transformed = onehot_fit.transform(df_to_apply[one_hot_cols])
+    method = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
+    onehot_fit = method.fit(df_fit[one_hot_cols])
+    onehot_transformed = onehot_fit.transform(df_transformed[one_hot_cols])
 
-        one_hot_feat_names = onehot_fit.get_feature_names_out(one_hot_cols)
-        encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+    one_hot_feat_names = onehot_fit.get_feature_names_out(one_hot_cols)
+    one_hot_feat_names = ['ohe_' + name for name in one_hot_feat_names]
 
-        # Drop original categorical columns & concatenate encoded ones
-        df_to_apply = df_to_apply.drop(columns=one_hot_cols)
-        df_to_apply = pd.concat([df_to_apply, encoded_df], axis=1)
+    encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+
+    # Drop original categorical columns & concatenate encoded ones
+    df_transformed = df_transformed.drop(columns=one_hot_cols)
+    df_transformed = pd.concat([df_transformed, encoded_df], axis=1)
         
-    return df_to_apply
+    return df_transformed
 
 
 # ----------------- SCALING ----------------- #
@@ -82,6 +112,7 @@ def scaling_features(df_fit, df_to_apply, metric_cols, method):
     Args:
         df_fit (pd.DataFrame): The dataframe to fit the scaler.
         df_to_apply (pd.DataFrame): The dataframe to apply the scaler.
+        metric_cols (list): List of numeric columns to scale.
         method (str): The scaling method to use. Options are 'minmax' - between 0 and 1, 'minmax2' - between -1 and 1, 
         'standard', and 'robust'.
     Returns:
@@ -126,9 +157,8 @@ def simple_imputation(df_fit, df_to_apply):
     df_to_apply = df_to_apply.copy()
 
     # define categorical and numerical columns
-    categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
-    numerical = df_fit.drop(categorical, axis=1).columns.tolist()
+    categorical = df_fit.select_dtypes(exclude=['number']).columns.tolist()
+    numerical = df_fit.select_dtypes(include=['number']).columns.tolist()
 
     for col in numerical:
         median_value = df_fit[col].median()
@@ -156,7 +186,7 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
 
     # define categorical and numerical columns
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+                   'is_hybrid_or_electric', 'is_automatic', 'is_first_owner']
     numerical = df_fit.drop(categorical, axis=1).columns.tolist()
 
     for col in numerical:
@@ -168,3 +198,38 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
                                             columns=[col],
                                             index=df_to_apply.index)
     return df_to_apply
+
+# ----------------- DATA PREPARATION COMPILATION ----------------- #
+
+# def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method):
+# # def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method, neighbors=5):
+
+#     """
+#     Compiles data preparation steps: outliers treatment, encoding, scaling, and missing values imputation.
+#     Parameters:
+#     df_fit: DataFrame to fit the transformations (training set)
+#     df_to_apply: DataFrame to apply the transformations (training/validation/test set)
+#     col_thresholds: Dictionary with outlier treatment rules per column
+#     ordinal_cols: List of columns to use Ordinal Encoding
+#     one_hot_cols: List of columns to use One-Hot Encoding
+#     metric_cols: List of numeric columns to scale
+#     scaling_method: Method to use for scaling (e.g., 'standard', 'minmax')
+#     """
+
+#     # Criar função de correção dados manuais
+#     #df_to_apply = correct_values(parametros)
+
+#     # Outliers Treatment
+#     df_to_apply = treat_outliers_custom(df_to_apply, col_thresholds)
+
+#     # Encoding
+#     df_to_apply = encoding_features(df_fit, df_to_apply, ordinal_cols, one_hot_cols)
+
+#     # Scaling
+#     scaled_metrics = scaling_features(df_fit, df_to_apply, metric_cols, scaling_method)
+
+#     # Missing Values Imputation
+#     df_to_apply = simple_imputation(df_fit, df_to_apply)
+#     #df_to_apply = knn_imputation(df_fit, df_to_apply, neighbors=5)
+
+#     return df_to_apply
