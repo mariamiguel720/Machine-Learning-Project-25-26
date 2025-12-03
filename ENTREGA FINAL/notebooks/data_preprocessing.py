@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pyparsing import col
 import seaborn as sns
 from math import ceil
 from sklearn.impute import KNNImputer
@@ -14,57 +15,64 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, S
 
 # ----------------- OUTLIERS TREATMENT ----------------- #
 
-# def treat_outliers_custom(df_to_apply, col_thresholds):
-#     """
-#     Caps outliers per column based on custom IQR multipliers or manual bounds.
-#     """
+""" def treat_outliers_custom(df_to_apply, col_thresholds):
+    Caps outliers per column based on custom IQR multipliers or manual bounds.
+  
     
-#     df_clean = df_to_apply.copy()
+    df_clean = df_to_apply.copy()
 
-#     for col, rules in col_thresholds.items():
-#         # Compute quartiles and IQR
-#         q1 = df_clean[col].quantile(0.25)
-#         q3 = df_clean[col].quantile(0.75)
-#         iqr = q3 - q1
+    for col, rules in col_thresholds.items():
+        # Compute quartiles and IQR
+        q1 = df_clean[col].quantile(0.25)
+        q3 = df_clean[col].quantile(0.75)
+        iqr = q3 - q1
 
-#         # Use IQR multiplier OR manual bounds
-#         if "iqr_mult" in rules:
-#             mult = rules['iqr_mult']
-#             lower = q1 - mult * iqr
-#             upper = q3 + mult * iqr
-#         else:
-#             lower = rules.get('lower', -np.inf)
-#             upper = rules.get('upper', np.inf)
+        # Use IQR multiplier OR manual bounds
+        if "iqr_mult" in rules:
+            mult = rules['iqr_mult']
+            lower = q1 - mult * iqr
+            upper = q3 + mult * iqr
+        else:
+            lower = rules.get('lower', -np.inf)
+            upper = rules.get('upper', np.inf)
 
-#         # Cap the outliers
-#         df_clean[col] = df_clean[col].clip(lower=lower, upper=upper)
+        # Cap the outliers
+        df_clean[col] = df_clean[col].clip(lower=lower, upper=upper)
 
-#     return df_clean
+    return df_clean
 
-"""column_rules = {
+# This isn't part of the function, but a default of how to define the rules
+column_rules = {
+    'year': {'lower': 1990, 'upper': 2025},
     'mileage': {'iqr_mult': 2.2},
     'tax': {'iqr_mult': 2.0},
     'mpg': {'iqr_mult': 2.2},
-"""
+    'engineSize': {'lower': 0.9, 'upper': 5.5},
+    'previousOwners': {'lower': 0, 'upper': 8}
+} """
 
-def treat_outliers(df):
+def treat_outliers_custom(df_fit, df_to_apply):
 
-    df_out = df.copy()
+    df_to_apply = df_to_apply.copy()
 
-    df_out['year'] = df_out['year'].clip(lower=1990, upper=2020)
-    df_out['engineSize'] = df_out['engineSize'].clip(lower=0.9, upper=5.5)
-    df_out['previousOwners'] = df_out['previousOwners'].clip(lower=0, upper=8)
+    # fixed limits
+    df_to_apply['year'] = df_to_apply['year'].clip(lower=1990, upper=2020)
+    df_to_apply['engineSize'] = df_to_apply['engineSize'].clip(lower=0.9, upper=5.5)
+    df_to_apply['previousOwners'] = df_to_apply['previousOwners'].clip(lower=0, upper=8)
 
-    cols_iqr = ['mileage', 'tax', 'mpg']
-    for col in cols_iqr:
-        q1 = df_out[col].quantile(0.25)
-        q3 = df_out[col].quantile(0.75)
+    # IQR based limits
+    for col in ['mileage', 'tax', 'mpg']:
+        # Calculate IQR based limits from df_fit
+        q1 = df_fit[col].quantile(0.25)
+        q3 = df_fit[col].quantile(0.75)
         iqr = q3 - q1
         lower = q1 - 2.2 * iqr
         upper = q3 + 2.2 * iqr
-        df_out[col] = df_out[col].clip(lower=lower, upper=upper)
 
-    return df_out
+        # Cap the outliers
+        df_to_apply[col] = df_to_apply[col].clip(lower=lower, upper=upper)
+
+    return df_to_apply
 
 # ----------------- ENCODING ----------------- #
 
