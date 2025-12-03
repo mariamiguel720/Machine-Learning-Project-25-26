@@ -4,17 +4,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from math import ceil
-from sklearn.impute import KNNImputer, IterativeImputer
+from sklearn.impute import KNNImputer #,IterativeImputer
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, StandardScaler, RobustScaler
+#from sklearn.experimental import enable_iterative_imputer
+#from sklearn.impute import IterativeImputer
+
+#Model evaluation
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, median_absolute_error, mean_absolute_percentage_error
+import statsmodels.api as sm
 
 
 # ----------------- BOXPLOTS ----------------- #
 
 # Function to create boxplots for numeric columns with consistent formatting
-def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 12)):
+def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
     """
     Creates boxplots for numeric columns with consistent formatting.
     
@@ -61,6 +65,68 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 12)):
     plt.show()
 
 
+
+# ----------------- OUTLIERS SUMMARY ----------------- #
+
+def outlier_summary(df_to_apply, metric_cols):
+    """Generates a summary table of outliers for each numeric column using IQR method."""
+
+    summary = []
+
+    for col in metric_cols:
+        Q1 = df_to_apply[col].quantile(0.25)
+        Q3 = df_to_apply[col].quantile(0.75)
+        IQR = Q3 - Q1
+
+        # Calculate bounds for outliers
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+
+        # Boolean mask for outliers
+        outliers = (df_to_apply[col] < lower_bound) | (df_to_apply[col] > upper_bound)
+
+        total_outliers = outliers.sum()
+        pct_outliers = 100 * total_outliers / len(df_to_apply)
+
+        summary.append({
+            "Column": col,
+            "Total Outliers": total_outliers,
+            "Percentage (%)": round(pct_outliers, 2)
+        })
+
+    return pd.DataFrame(summary)
+
+
+# ----------------- OUTLIERS TREATMENT ----------------- #
+
+def treat_outliers_custom(df_to_apply, col_thresholds):
+    """
+    Caps outliers per column based on custom IQR multipliers or manual bounds.
+    """
+    
+    df_clean = df_to_apply.copy()
+
+    for col, rules in col_thresholds.items():
+        # Compute quartiles and IQR
+        q1 = df_clean[col].quantile(0.25)
+        q3 = df_clean[col].quantile(0.75)
+        iqr = q3 - q1
+
+        # Use IQR multiplier OR manual bounds
+        if "iqr_mult" in rules:
+            mult = rules['iqr_mult']
+            lower = q1 - mult * iqr
+            upper = q3 + mult * iqr
+        else:
+            lower = rules.get('lower', -np.inf)
+            upper = rules.get('upper', np.inf)
+
+        # Cap the outliers
+        df_clean[col] = df_clean[col].clip(lower=lower, upper=upper)
+
+    return df_clean
+
+
 # ----------------- HEATMAPS ----------------- #
 
 def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
@@ -94,62 +160,86 @@ def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
     plt.show()
 
 
+# ----------------- ENCODING ----------------- #
+
+# Function to encode categorical features using One-Hot and Ordinal Encoding
+def encoding_features(df_fit, df_to_apply, ordinal_cols=None, one_hot_cols=None,):
+    """ Encode categorical features using One-Hot and Ordinal Encoding. 
+    
+    Parameters:
+    df_fit: DataFrame to fit the encoders (training set)
+    df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
+    one_hot_cols: List of columns to use One-Hot Encoding
+    ordinal_cols: List of columns to use Ordinal Encoding
+    """
+
+    # -------- ORDINAL ENCODING --------
+    if ordinal_cols:
+        method1 = OrdinalEncoder()
+        ordinal_fit = method1.fit(df_fit[ordinal_cols])
+        df_to_apply[ordinal_cols] = ordinal_fit.transform(df_to_apply[ordinal_cols])
+
+    # -------- ONE HOT ENCODING --------
+    if one_hot_cols:
+        method2 = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
+        onehot_fit = method2.fit(df_fit[one_hot_cols])
+        onehot_transformed = onehot_fit.transform(df_to_apply[one_hot_cols])
+
+        one_hot_feat_names = onehot_fit.get_feature_names_out(one_hot_cols)
+        encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+
+        # Drop original categorical columns & concatenate encoded ones
+        df_to_apply = df_to_apply.drop(columns=one_hot_cols)
+        df_to_apply = pd.concat([df_to_apply, encoded_df], axis=1)
+        
+    return df_to_apply
+
 
 # ----------------- SCALING ----------------- #
 
 # Function to scale features using different scaling methods
-def scaling_features(train_set, val_set, method):
+def scaling_features(df_fit, df_to_apply, metric_cols, method):
     """ Scales the features of the train and validation sets according to the specified method.
     Args:
-        train_set (pd.DataFrame): The training data to be scaled.
-        val_set (pd.DataFrame): The validation data to be scaled.
+        df_fit (pd.DataFrame): The dataframe to fit the scaler.
+        df_to_apply (pd.DataFrame): The dataframe to apply the scaler.
         method (str): The scaling method to use. Options are 'minmax' - between 0 and 1, 'minmax2' - between -1 and 1, 
         'standard', and 'robust'.
     Returns:
-        scaled_X_train (np.ndarray): The scaled training data.
-        scaled_X_val (np.ndarray): The scaled validation data.
+        scaled_df_to_apply (np.ndarray): The scaled dataframe to which the scaler is applied.
     """
 
     if method == 'minmax':
         #scale your data using MinMaxScaler[0,1]
-        min_max = MinMaxScaler().fit(train_set)
-        # Transform your train data by applying the scale obtained in the previous command
-        scaled_X_train = min_max.transform(train_set)
-        # Transform your validation data by applying the scale obtained in the first command
-        scaled_X_val = min_max.transform(val_set)
+        min_max = MinMaxScaler().fit(df_fit[metric_cols])
+        # Transform the data from df_to_apply by applying the scale obtained in the previous command
+        scaled_df_to_apply = min_max.transform(df_to_apply[metric_cols])
     elif method == 'minmax2':
         # Create a MinMaxScaler instance that will range between -1 and 1 and fit to your train data
-        min_max = MinMaxScaler(feature_range=(-1, 1)).fit(train_set)
-        # Transform your train data by applying the scale obtained in the previous command
-        scaled_X_train = min_max.transform(train_set)
-        # Transform your validation data by applying the scale obtained in the first command
-        scaled_X_val = min_max.transform(val_set)
+        min_max = MinMaxScaler(feature_range=(-1, 1)).fit(df_fit[metric_cols])
+        # Transform your the data from df_to_apply by applying the scale obtained in the previous command
+        scaled_df_to_apply = min_max.transform(df_to_apply[metric_cols])
     elif method == 'standard':
         # Create a StandardScaler instance and fit to your train data
-        standard = StandardScaler().fit(train_set)
-        # Transform your train data by applying the scale obtained in the previous command
-        scaled_X_train = standard.transform(train_set)
-        # Transform your validation data by applying the scale obtained in the first command
-        scaled_X_val = standard.transform(val_set)
+        standard = StandardScaler().fit(df_fit[metric_cols])
+        # Transform your the data from df_to_apply by applying the scale obtained in the previous command
+        scaled_df_to_apply = standard.transform(df_to_apply[metric_cols])
     else: 
-        robust = RobustScaler().fit(train_set)
-        # Transform your train data by applying the scale obtained in the previous command
-        scaled_X_train = robust.transform(train_set)
-        # Transform your validation data by applying the scale obtained in the first command
-        scaled_X_val = robust.transform(val_set)      
-    return scaled_X_train, scaled_X_val
+        robust = RobustScaler().fit(df_fit[metric_cols])
+        # Transform your the data from df_to_apply by applying the scale obtained in the previous command
+        scaled_df_to_apply = robust.transform(df_to_apply[metric_cols])
+    return scaled_df_to_apply
 
 # ----------------- MISSING VALUES ----------------- #
 
 # Function to calculate the percentage of missing values in each column and return a DataFrame
-def missing_values_table(data):
+def missing_values_table(df):
     " This function shows the number and percentage of missing values in each column of the dataframe 'data'."
     
     # Number of rows in the dataset
-    rows_number = data.shape[0]
-
+    rows_number = df.shape[0]
     # Number of missing values per column
-    missing_counts = data.isnull().sum()
+    missing_counts = df.isnull().sum()
 
     # Percentage of missing values per column
     missing_percentage = (missing_counts / rows_number) * 100
@@ -159,193 +249,163 @@ def missing_values_table(data):
     missing_df.columns = ['Feature', 'Missing_Percent']
     return missing_df
 
+
 # Function to impute missing values based on specified methods
-def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5.0, neighbors=5):
-
-    """
-    Impute missing values in train_set, val_set, test_set datasets.
-
+def simple_imputation(df_fit, df_to_apply):
+    """ 
+    Imputes missing values in the dataframe using median/mode for missing values.
     Parameters:
-        data: original dataframe (used for missing percentages)
-        train_set, val_set, test_set: pd.DataFrame
-        num_method: method for high missing numerical columns ('KNN', 'Iterative', 'RF')
-        cat_method: method for high missing categorical columns ('mode', 'RF')
+        df_fit: dataframe to fit the imputation
+        df_to_apply: dataframe to apply the imputation
         threshold: % below which missing values are considered low
-        neighbors: n_neighbors for KNN
-
-    Returns:
-        train_set_copy, val_set_copy, test_set_copy: the dataframes with imputed values
     """
+    # make a copy of the dataframe to avoid modifying the original data
+    df_fit = df_fit.copy()
+    df_to_apply = df_to_apply.copy()
 
-    # Create copies of the training and validation datasets
-    train_set_copy = train_set.copy().reset_index()
-    val_set_copy = val_set.copy().reset_index()
-    test_set_copy = test_set.copy().reset_index()
-
+    # define categorical and numerical columns
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-            'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
-    numerical = train_set_copy.drop(categorical, axis=1).columns.tolist()
+                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+    numerical = df_fit.drop(categorical, axis=1).columns.tolist()
 
-    missing_percentages_df = missing_values_table(train_set_copy)
-    low_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] <= threshold]['Feature'].tolist()
-    high_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] > threshold]['Feature'].tolist()
+    for col in numerical:
+        median_value = df_fit[col].median()
+        df_to_apply[col] = df_to_apply[col].fillna(median_value)
+    for col in categorical:
+        mode_value = df_fit[col].mode().iloc[0]
+        df_to_apply[col] = df_to_apply[col].fillna(mode_value)
 
-    # Function to impute missing values based on specified methods
-def imputation(train_set, val_set, test_set, num_method, cat_method, threshold=5.0, neighbors=5):
+    return df_to_apply
 
-    """
-    Impute missing values in train_set, val_set, test_set datasets.
 
+def knn_imputation(df_fit, df_to_apply, neighbors=5):
+    """ 
+    Imputes missing values in the df_to_apply using KNN imputation.
     Parameters:
-        data: original dataframe (used for missing percentages)
-        train_set, val_set, test_set: pd.DataFrame
-        num_method: method for high missing numerical columns ('KNN', 'Iterative', 'RF')
-        cat_method: method for high missing categorical columns ('mode', 'RF')
-        threshold: % below which missing values are considered low
+        df_fit: train dataframe (used to fit imputation models)
+        df_to_apply: dataframe to apply the imputation
         neighbors: n_neighbors for KNN
-
-    Returns:
-        train_set_copy, val_set_copy, test_set_copy: the dataframes with imputed values
     """
 
-    # Create copies of the training and validation datasets
-    train_set_copy = train_set.copy()
-    val_set_copy = val_set.copy()
-    test_set_copy = test_set.copy()
+    # make a copy of the dataframe to avoid modifying the original data
+    df_fit = df_fit.copy()
+    df_to_apply = df_to_apply.copy()
 
-    # Identify categorical and numerical columns
+    # define categorical and numerical columns
     categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-            'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
-    numerical = train_set_copy.drop(categorical, axis=1).columns.tolist()
+                   'is_hybrid_or_electric', 'is_automatic', 'paintQuality_category', 'has_damage_or_low_paint', 'is_first_owner']
+    numerical = df_fit.drop(categorical, axis=1).columns.tolist()
 
-    # Get missing percentages from training set
-    missing_percentages_df = missing_values_table(train_set_copy)
-    low_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] <= threshold]['Feature'].tolist()
-    high_missing_values = missing_percentages_df[missing_percentages_df['Missing_Percent'] > threshold]['Feature'].tolist()
-
-    # -------------  LOW MISSING  ------------- #
-    
-    # for col in low_missing_values:
-    #     if col in numerical:
-    #         median_value = train_set_copy[col].median()
-    #         for df in [train_set_copy, val_set_copy, test_set_copy]:
-    #             df[col].fillna(median_value, inplace=True)
-
-    #     elif col in categorical:
-    #         mode_value = train_set_copy[col].mode().iloc[0]
-    #         for df in [train_set_copy, val_set_copy, test_set_copy]:
-    #             df[col].fillna(mode_value, inplace=True)
-
-    # for col in high_missing_values:
-
-
-    # Numerical Variables - Median Imputation
-    num_low = [n for n in low_missing_values if n in numerical] # list of numerical columns with low missing
-    if num_low:
-        # calculate Median from training set
-        median_value = train_set_copy[num_low].median()
-
-        # fill missing values in train, val, and test sets with train median
-        for df in [train_set_copy, val_set_copy, test_set_copy]:
-            df[num_low].fillna(median_value, inplace=True)
-
-    # Categorical Variables - Mode Imputation
-    cat_low = [c for c in low_missing_values if c in categorical] # list of categorical columns with low missing
-    if cat_low:
-        # calculate Mode from training set
-        mode_value = train_set_copy[cat_low].mode().iloc[0]
-        # fill missing values in train, val, and test sets with train Mode
-        for df in [train_set_copy, val_set_copy, test_set_copy]:
-            df[cat_low].fillna(mode_value, inplace=True)
-    
-    # -------------  HIGH MISSING  ------------- #
-    num_high = [n for n in high_missing_values if n in numerical]
-    cat_high = [c for c in high_missing_values if c in categorical]
-
-    # Numerical Variables
-    if num_high:
-        # KNN Imputation
-        if num_method == 'KNN':
-            # Fit the KNNImputer on the training set
+    for col in numerical:
+     # Fit the KNNImputer on the training set
             knn_imputer = KNNImputer(n_neighbors=neighbors, weights='distance')
-            knn_imputer.fit(train_set_copy[num_high])
+            knn_imputer.fit(df_fit[[col]])
+            # Transform df to apply 
+            df_to_apply[[col]] = pd.DataFrame(knn_imputer.transform(df_to_apply[[col]]),
+                                            columns=[col],
+                                            index=df_to_apply.index)
+    return df_to_apply
 
-            # Transform training, validation, and test sets
-            for df in [train_set_copy, val_set_copy, test_set_copy]:
-                df[num_high] = pd.DataFrame(knn_imputer.transform(df[num_high]),
-                                            columns=num_high,
-                                            index=df.index)
-                   
-        # MICE Imputation
-        elif num_method == 'Iterative':
-            # Fit the IterativeImputer on the training set
-            iterative_imputer = IterativeImputer(random_state=40111)
-            iterative_imputer.fit(train_set_copy[num_high])
 
-            # Transform training, validation, and test sets
-            for df in [train_set_copy, val_set_copy, test_set_copy]:
-                df[num_high] = pd.DataFrame(iterative_imputer.transform(df[num_high]),
-                                            columns=num_high,
-                                            index=df.index)
-                
-        # Random Forest Imputation for Numerical Columns
-        elif num_method == 'RF':
-            for col in num_high:
-                not_missing = train_set_copy[train_set_copy[col].notna()]
-                missing = train_set_copy[train_set_copy[col].isna()]
-                if not not_missing.empty:
-                    rf = RandomForestRegressor(n_estimators=200, random_state=40111, n_jobs=-1)
-                    # Fit RandomForestRegressor with training data without missing values
-                    rf.fit(not_missing.drop(columns=[col]), not_missing[col])
-                    
-                    # Fill train missing
-                    if not missing.empty:
-                        train_set_copy.loc[missing.index, col] = rf.predict(missing.drop(columns=[col]))
-                    
-                    # Fill val missing
-                    mask = val_set_copy[col].isna()
-                    if mask.sum() > 0:
-                        val_set_copy.loc[mask, col] = rf.predict(val_set_copy.loc[mask].drop(columns=[col]))
-                    
-                    # Fill test missing
-                    mask = test_set_copy[col].isna()
-                    if mask.sum() > 0:
-                        test_set_copy.loc[mask, col] = rf.predict(test_set_copy.loc[mask].drop(columns=[col]))
+# ----------------- DATA PREPARATION COMPILATION ----------------- #
 
-    if cat_high:
-        # Mode Imputation
-        if cat_method == 'Mode':
-            for col in cat_high:
-                mode_value = train_set_copy[col].mode().iloc[0]
-                # fill missing values in train, val, and test sets with train mode
-                for df in [train_set_copy, val_set_copy, test_set_copy]:
-                    df[col].fillna(mode_value, inplace=True)
-        # Random Forest Imputation for Categorical Columns
-        elif cat_method == 'RF':
-            for col in cat_high:
-                not_missing = train_set_copy[train_set_copy[col].notna()]
-                missing = train_set_copy[train_set_copy[col].isna()]
+def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method):
+# def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method, neighbors=5):
 
-                if not not_missing.empty:
-                    # Define features (all columns except target)
-                    feature_cols = [c for c in train_set_copy.columns if c != col]
+    """
+    Compiles data preparation steps: outliers treatment, encoding, scaling, and missing values imputation.
+    Parameters:
+    df_fit: DataFrame to fit the transformations (training set)
+    df_to_apply: DataFrame to apply the transformations (training/validation/test set)
+    col_thresholds: Dictionary with outlier treatment rules per column
+    ordinal_cols: List of columns to use Ordinal Encoding
+    one_hot_cols: List of columns to use One-Hot Encoding
+    metric_cols: List of numeric columns to scale
+    scaling_method: Method to use for scaling (e.g., 'standard', 'minmax')
+    """
 
-                    # Train RandomForestClassifier
-                    clf = RandomForestClassifier(n_estimators=200, random_state=40111, n_jobs=-1)
-                    clf.fit(not_missing[feature_cols], not_missing[col])
+    # Criar função de correção dados manuais
+    #df_to_apply = correct_values(parametros)
 
-                    # Fill train missing
-                    if not missing.empty:
-                        train_set_copy.loc[missing.index, col] = clf.predict(missing[feature_cols])
+    # Outliers Treatment
+    df_to_apply = treat_outliers_custom(df_to_apply, col_thresholds)
 
-                    # Fill val missing
-                    mask = val_set_copy[col].isna()
-                    if mask.sum() > 0:
-                        val_set_copy.loc[mask, col] = clf.predict(val_set_copy.loc[mask, feature_cols])
+    # Encoding
+    df_to_apply = encoding_features(df_fit, df_to_apply, ordinal_cols, one_hot_cols)
 
-                    # Fill test missing
-                    mask = test_set_copy[col].isna()
-                    if mask.sum() > 0:
-                        test_set_copy.loc[mask, col] = clf.predict(test_set_copy.loc[mask, feature_cols])
+    # Scaling
+    scaled_metrics = scaling_features(df_fit, df_to_apply, metric_cols, scaling_method)
+
+    # Missing Values Imputation
+    df_to_apply = simple_imputation(df_fit, df_to_apply)
+    #df_to_apply = knn_imputation(df_fit, df_to_apply, neighbors=5)
+
+    return df_to_apply
+
+
+# ----------------- CORRECT VALUES ----------------- #
+
+#def correct_values(train):
+
+
+
+
+
+
+
+
+
+# ----------------- MODEL AND ASSESSMENT ----------------- #
+
+def train_model(model, X_train, y_train):
+    """ Train the given model on provided data."""
+    model.fit(X_train, y_train) # Fit the model
+    return model
+
+
+
+def evaluate_model(model, X, y):
+    """Evaluate a regression model using multiple metrics:
+    R2, Adjusted R2, MAE, MSE, RMSE, MedAE, MAPE."""
+    n_samples = X.shape[0] # number of observations
+    n_features = X.shape[1] # number of features
     
-    return train_set_copy, val_set_copy, test_set_copy
+    y_pred = model.predict(X) # predicted values
+    
+    # Calculate metrics
+    r2 = r2_score(y, y_pred)
+    adj_r2 = 1 - (1 - r2) * (n_samples - 1) / (n_samples - n_features - 1)
+    mae = mean_absolute_error(y, y_pred)
+    mse = mean_squared_error(y, y_pred)
+    rmse = rmse = np.sqrt(mse)
+    medae = median_absolute_error(y, y_pred)
+    mape = mean_absolute_percentage_error(y, y_pred)
+
+# Compile metrics into a dictionary
+    metrics_dict = {
+        'R2': r2,
+        'Adjusted R2': adj_r2,
+        'MAE': mae,
+        'MSE': mse,
+        'RMSE': rmse,
+        'MedAE': medae,
+        'MAPE (%)': mape
+    }
+    return metrics_dict
+
+
+
+# Create comparison DataFrame
+def comparison_metrics(model, X_train, y_train, X_val, y_val):
+    """Create a comparison DataFrame for training and validation metrics."""
+
+    metrics_train = evaluate_model(model, X_train, y_train)
+    metrics_val = evaluate_model(model, X_val, y_val)
+    
+    comparison_df = pd.DataFrame({
+        'Metric': list(metrics_train.keys()),
+        'Train': list(metrics_train.values()),
+        'Validation': list(metrics_val.values()),
+        'Iteration': model.n_iter_
+    })
+    return comparison_df
