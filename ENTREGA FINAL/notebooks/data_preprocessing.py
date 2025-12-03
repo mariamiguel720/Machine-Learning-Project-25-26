@@ -149,9 +149,8 @@ def simple_imputation(df_fit, df_to_apply):
     df_to_apply = df_to_apply.copy()
 
     # define categorical and numerical columns
-    categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-                   'is_hybrid_or_electric', 'is_automatic', 'is_first_owner']
-    numerical = df_fit.drop(categorical, axis=1).columns.tolist()
+    categorical = df_fit.select_dtypes(exclude=['number']).columns.tolist()
+    numerical = df_fit.select_dtypes(include=['number']).columns.tolist()
 
     for col in numerical:
         median_value = df_fit[col].median()
