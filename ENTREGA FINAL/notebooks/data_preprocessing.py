@@ -4,11 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from math import ceil
-from sklearn.impute import KNNImputer #,IterativeImputer
+from sklearn.impute import KNNImputer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, StandardScaler, RobustScaler
-#from sklearn.experimental import enable_iterative_imputer
-#from sklearn.impute import IterativeImputer
 
+
+# ----------------- CORRECT VALUES ----------------- #
+
+#def correct_values(train):
 
 # ----------------- OUTLIERS TREATMENT ----------------- #
 
@@ -168,3 +170,38 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
                                             columns=[col],
                                             index=df_to_apply.index)
     return df_to_apply
+
+# ----------------- DATA PREPARATION COMPILATION ----------------- #
+
+# def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method):
+# # def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method, neighbors=5):
+
+#     """
+#     Compiles data preparation steps: outliers treatment, encoding, scaling, and missing values imputation.
+#     Parameters:
+#     df_fit: DataFrame to fit the transformations (training set)
+#     df_to_apply: DataFrame to apply the transformations (training/validation/test set)
+#     col_thresholds: Dictionary with outlier treatment rules per column
+#     ordinal_cols: List of columns to use Ordinal Encoding
+#     one_hot_cols: List of columns to use One-Hot Encoding
+#     metric_cols: List of numeric columns to scale
+#     scaling_method: Method to use for scaling (e.g., 'standard', 'minmax')
+#     """
+
+#     # Criar função de correção dados manuais
+#     #df_to_apply = correct_values(parametros)
+
+#     # Outliers Treatment
+#     df_to_apply = treat_outliers_custom(df_to_apply, col_thresholds)
+
+#     # Encoding
+#     df_to_apply = encoding_features(df_fit, df_to_apply, ordinal_cols, one_hot_cols)
+
+#     # Scaling
+#     scaled_metrics = scaling_features(df_fit, df_to_apply, metric_cols, scaling_method)
+
+#     # Missing Values Imputation
+#     df_to_apply = simple_imputation(df_fit, df_to_apply)
+#     #df_to_apply = knn_imputation(df_fit, df_to_apply, neighbors=5)
+
+#     return df_to_apply
