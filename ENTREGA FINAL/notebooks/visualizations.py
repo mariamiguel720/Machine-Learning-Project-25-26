@@ -8,17 +8,16 @@ import numpy as np
 # ----------------- BOXPLOTS ----------------- #
 
 # Function to create boxplots for numeric columns with consistent formatting
-def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
+def create_boxplots(df, n_cols=2, figsize=(20, 8)):
     """
     Creates boxplots for numeric columns.
     
     Parameters:
         df (DataFrame): The dataset
-        numeric_cols (list): List of numeric columns to plot.
         n_cols (int): Number of subplot columns (default=2)
         figsize (tuple): Base figure size; height is scaled dynamically
     """
-
+    numeric_cols = df.select_dtypes(include=['number', 'float']).columns # Select numeric columns
     n_features = len(numeric_cols) # Total number of numeric features
     n_rows = ceil(n_features / n_cols) # Calculate number of rows needed using ceiling to round up
 
@@ -53,7 +52,7 @@ def create_boxplots(df, numeric_cols, n_cols=2, figsize=(20, 8)):
 
 # ----------------- HEATMAPS ----------------- #
 
-def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
+def create_heatmap(df, method, figsize=(10, 8)):
     """
     Creates a heatmap for the correlation matrix of numeric columns.
     
@@ -62,6 +61,9 @@ def create_heatmap(df, method, numeric_cols, figsize=(10, 8)):
         method (str): Correlation method to use (e.g., "pearson", "spearman", "kendall").
         numeric_cols (list): List of numeric columns to include in the correlation matrix.
     """
+
+    numeric_cols = df.select_dtypes(include=['number', 'float']).columns # Select numeric columns
+    # Calculate correlation matrix
     corr = df[numeric_cols].corr(method=method).round(2)
     # Create a mask for the upper triangle
     mask = np.triu(np.ones_like(corr, dtype=bool))  
