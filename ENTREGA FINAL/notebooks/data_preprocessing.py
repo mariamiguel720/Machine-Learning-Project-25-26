@@ -1,4 +1,5 @@
 # ----------------- LIBRARIES ----------------- #
+from difflib import SequenceMatcher
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,14 +10,103 @@ from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler, RobustScaler
 
 
-# ----------------- CORRECT VALUES ----------------- #
+# --------------------------------------------------- CORRECT VALUES --------------------------------------------------- #
 
-#def correct_values(train):
+# ----------------- INVALID VALUES ----------------- #
 
-# ----------------- OUTLIERS TREATMENT ----------------- #
+# Function to correct invalid values in the DataFrame
+def correct_wrong_values(df):
+    """Corrects invalid values in the DataFrame:
+    Parameters:
+        df (DataFrame): The dataset
+    Returns:
+        df (DataFrame): The dataset with corrected values
+    """
+    numeric_cols = df.select_dtypes(include=['number', 'float']).columns # Select numeric columns
+    for col in numeric_cols:
+        if (df[col] < 0).any():  # Check for negative values
+            df.loc[df[col] < 0, col] = np.nan # Replace negative values with NaN
+    for col in ['year', 'previousOwners']: #Rounds numeric values: values with decimal part >= 0.5 go up, others go down.
+        df[col] = df[col].astype('Int64') # Use 'Int64' to allow for NaN values
+    return df 
+
+# ----------------- CATEGORICAL CORRECTIONS ----------------- #
+
+# Function to calculate similarity between two strings
+def similar(a, b):
+    """Calculates similarity ratio between two strings using SequenceMatcher."""
+    return SequenceMatcher(None, a, b).ratio()
+
+
+# Function to clean categorical column using difflib
+def clean_with_diff(df, column, threshold_short, threshold_long):
+    """
+    Cleans a categorical column by grouping similar values based on defined thresholds.
+    Parameters:
+        df: DataFrame containing the column to clean
+        column: Name of the column to clean
+        threshold_short: Similarity threshold for short strings (length <= 5)
+        threshold_long: Similarity threshold for long strings (length > 5)
+    Returns:
+        df: DataFrame with cleaned column
+    """
+    # Get unique values in the column
+    values = df[column].dropna().unique()
+    groups = []
+    used = set()
+    
+    # Group similar values
+    for v in values:
+        if v in used:
+            continue
+        
+        # Start a new group
+        group = [v]
+        used.add(v)
+        
+        # Compare with other values
+        for other in values:
+            if other in used:
+                continue
+
+            # Choose the thresholds based on length
+            if len(v) <= 5 and len(other) <= 5:
+                threshold = threshold_short
+            else:
+                threshold = threshold_long
+
+            # Check similarity. If similar, add to group.
+            if similar(v.lower(), other.lower()) >= threshold:
+                group.append(other)
+                used.add(other)
+
+        # Append the group to the list of groups
+        groups.append(group)
+    
+    # Create mapping for each group and replace values with mode
+    mapping = {}
+    for group in groups:
+        moda = df[df[column].isin(group)][column].mode()[0]
+        for item in group:
+            mapping[item] = moda
+    
+    df[column] = df[column].map(mapping).fillna(df[column])
+    
+    return df
+
+
+
+# --------------------------------------------------- OUTLIERS TREATMENT --------------------------------------------------- #
 
 # Function to treat outliers based on custom rules
 def treat_outliers_custom(df_fit, df_to_apply):
+    """ Treats outliers in df_to_apply based on custom rules defined for each column.
+    Parameters:
+        df_fit (pd.DataFrame): The dataframe to fit the outlier treatment rules.
+        df_to_apply (pd.DataFrame): The dataframe to apply the outlier treatment.
+    Returns:
+        df_to_apply (pd.DataFrame): The dataframe with treated outliers.
+    """
 
     df_to_apply = df_to_apply.copy()
 
@@ -39,15 +129,16 @@ def treat_outliers_custom(df_fit, df_to_apply):
 
     return df_to_apply
 
-# ----------------- ENCODING ----------------- #
+# --------------------------------------------------- ENCODING --------------------------------------------------- #
 
 # Function to encode categorical features using One-Hot Encoding
 def encoding_features(df_fit, df_to_apply):
     """ Encode categorical features using One-Hot Encoding. 
-    
     Parameters:
-    df_fit: DataFrame to fit the encoders (training set)
-    df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
+        df_fit: DataFrame to fit the encoders (training set)
+        df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
+    Returns:
+        df_transformed: DataFrame with encoded categorical features
     """
 
     df_transformed = df_to_apply.copy()
@@ -74,7 +165,7 @@ def encoding_features(df_fit, df_to_apply):
     return df_transformed
     
 
-# ----------------- SCALING ----------------- #
+# --------------------------------------------------- SCALING --------------------------------------------------- #
 
 # Function to scale features using different scaling methods
 def scaling_features(df_fit, df_to_apply, metric_cols, method):
@@ -116,7 +207,7 @@ def scaling_features(df_fit, df_to_apply, metric_cols, method):
 
     return df_to_apply
 
-# ----------------- MISSING VALUES IMPUTATION ----------------- #
+# --------------------------------------------------- MISSING VALUES IMPUTATION --------------------------------------------------- #
 
 # Function to impute missing values using Simple or KNN imputation
 def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
@@ -127,6 +218,8 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
         df_fit: DataFrame to fit the imputation models (training set)
         df_to_apply: DataFrame to apply the imputation (training/validation/test set)
         neighbors: number of neighbors for KNN imputation
+    Returns:
+        df_to_apply: DataFrame with imputed missing values
     """
     # Create a copy of df_to_apply to avoid modifying the original DataFrame
     df_to_apply = df_to_apply.copy()
