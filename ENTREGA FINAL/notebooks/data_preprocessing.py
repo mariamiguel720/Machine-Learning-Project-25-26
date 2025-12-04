@@ -1,4 +1,4 @@
-# ----------------- LIBRARIES ----------------- #
+# ------------------------------------------------------ LIBRARIES -------------------------------------------- #
 from difflib import SequenceMatcher
 import pandas as pd
 import numpy as np
@@ -10,7 +10,7 @@ from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler, RobustScaler
 
 
-# --------------------------------------------------- CORRECT VALUES --------------------------------------------------- #
+# --------------------------------------------------- CORRECT VALUES -------------------------------------------- #
 
 # ----------------- INVALID VALUES ----------------- #
 
@@ -22,6 +22,9 @@ def correct_wrong_values(df):
     Returns:
         df (DataFrame): The dataset with corrected values
     """
+
+    df = df.copy()
+
     numeric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
     for col in numeric_cols:
         if (df[col] < 0).any():  # Check for negative values
@@ -30,7 +33,7 @@ def correct_wrong_values(df):
         df[col] = df[col].astype('Int64') # Use 'Int64' to allow for NaN values
     return df 
 
-# ----------------- CATEGORICAL CORRECTIONS ----------------- #
+# --------------------------------------------------- CATEGORICAL CORRECTIONS ----------------------------------- #
 
 # Function to calculate similarity between two strings
 def similar(a, b):
@@ -50,6 +53,9 @@ def clean_with_diff(df, column, threshold_short, threshold_long):
     Returns:
         df: DataFrame with cleaned column
     """
+
+    df = df.copy()
+
     # Get unique values in the column
     values = df[column].dropna().unique()
     groups = []
@@ -138,10 +144,10 @@ def encoding_features(df_fit, df_to_apply):
         df_fit: DataFrame to fit the encoders (training set)
         df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
     Returns:
-        df_transformed: DataFrame with encoded categorical features
+        df_to_apply: DataFrame with encoded categorical features
     """
 
-    df_transformed = df_to_apply.copy()
+    df_to_apply = df_to_apply.copy()
 
     # Define categorical columns from df_fit
     cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
@@ -149,7 +155,7 @@ def encoding_features(df_fit, df_to_apply):
     # Apply One-Hot Encoding
     one_hot = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
     onehot_fit = one_hot.fit(df_fit[cat_cols])
-    onehot_transformed = onehot_fit.transform(df_transformed[cat_cols])
+    onehot_transformed = onehot_fit.transform(df_to_apply[cat_cols])
 
     # Get features names
     one_hot_feat_names = onehot_fit.get_feature_names_out(cat_cols)
@@ -159,10 +165,10 @@ def encoding_features(df_fit, df_to_apply):
     encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
 
     # Drop original categorical columns & concatenate encoded ones
-    df_transformed = df_transformed.drop(columns=cat_cols)
-    df_transformed = pd.concat([df_transformed, encoded_df], axis=1)
+    df_to_apply = df_to_apply.drop(columns=cat_cols)
+    df_to_apply = pd.concat([df_to_apply, encoded_df], axis=1)
         
-    return df_transformed
+    return df_to_apply
     
 
 # --------------------------------------------------- SCALING --------------------------------------------------- #
@@ -209,7 +215,7 @@ def scaling_features(df_fit, df_to_apply, method):
 
     return df_to_apply
 
-# --------------------------------------------------- MISSING VALUES IMPUTATION --------------------------------------------------- #
+# --------------------------------------------- MISSING VALUES IMPUTATION ----------------------------------------- #
 
 # Function to impute missing values using Simple or KNN imputation
 def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
@@ -223,7 +229,7 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
     Returns:
         df_to_apply: DataFrame with imputed missing values
     """
-    # Create a copy of df_to_apply to avoid modifying the original DataFrame
+
     df_to_apply = df_to_apply.copy()
 
     # Define categorical and numerical columns
@@ -251,7 +257,7 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
 
     return df_to_apply
 
-# ----------------- DATA PREPARATION COMPILATION ----------------- #
+# --------------------------------------------- DATA PREPARATION COMPILATION ----------------------------------------- #
 
 # def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method):
 # # def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method, neighbors=5):
