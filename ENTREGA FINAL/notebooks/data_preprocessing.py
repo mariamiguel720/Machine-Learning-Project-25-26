@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from pyparsing import col
 import seaborn as sns
 from math import ceil
-from sklearn.impute import KNNImputer
+from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, StandardScaler, RobustScaler
 
 
@@ -15,42 +15,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, S
 
 # ----------------- OUTLIERS TREATMENT ----------------- #
 
-""" def treat_outliers_custom(df_to_apply, col_thresholds):
-    Caps outliers per column based on custom IQR multipliers or manual bounds.
-  
-    
-    df_clean = df_to_apply.copy()
-
-    for col, rules in col_thresholds.items():
-        # Compute quartiles and IQR
-        q1 = df_clean[col].quantile(0.25)
-        q3 = df_clean[col].quantile(0.75)
-        iqr = q3 - q1
-
-        # Use IQR multiplier OR manual bounds
-        if "iqr_mult" in rules:
-            mult = rules['iqr_mult']
-            lower = q1 - mult * iqr
-            upper = q3 + mult * iqr
-        else:
-            lower = rules.get('lower', -np.inf)
-            upper = rules.get('upper', np.inf)
-
-        # Cap the outliers
-        df_clean[col] = df_clean[col].clip(lower=lower, upper=upper)
-
-    return df_clean
-
-# This isn't part of the function, but a default of how to define the rules
-column_rules = {
-    'year': {'lower': 1990, 'upper': 2025},
-    'mileage': {'iqr_mult': 2.2},
-    'tax': {'iqr_mult': 2.0},
-    'mpg': {'iqr_mult': 2.2},
-    'engineSize': {'lower': 0.9, 'upper': 5.5},
-    'previousOwners': {'lower': 0, 'upper': 8}
-} """
-
+# Function to treat outliers based on custom rules
 def treat_outliers_custom(df_fit, df_to_apply):
 
     df_to_apply = df_to_apply.copy()
@@ -77,31 +42,49 @@ def treat_outliers_custom(df_fit, df_to_apply):
 # ----------------- ENCODING ----------------- #
 
 # Function to encode categorical features using One-Hot and Ordinal Encoding
-def encoding_features(df_fit, df_to_apply, one_hot_cols=None):
+def encoding_features(df_fit, df_to_apply, method):
     """ Encode categorical features using One-Hot. 
     
     Parameters:
     df_fit: DataFrame to fit the encoders (training set)
     df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
-    one_hot_cols: List of columns to use One-Hot Encoding
-    """
+    method: 'ordinal' for Ordinal Encoding, 'onehot' for One-Hot Encoding
+        """
 
     df_transformed = df_to_apply.copy()
 
-    method = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
-    onehot_fit = method.fit(df_fit[one_hot_cols])
-    onehot_transformed = onehot_fit.transform(df_transformed[one_hot_cols])
+    # Define categorical columns from df_fit
+    cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
 
-    one_hot_feat_names = onehot_fit.get_feature_names_out(one_hot_cols)
-    one_hot_feat_names = ['ohe_' + name for name in one_hot_feat_names]
+    # Ensure columns exist in df_to_apply
+    cat_cols = [c for c in cat_cols if c in df_to_apply.columns]
 
-    encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+    if not cat_cols:
+        return df_transformed
+    
+    if method == 'ordinal':
+        ordinal_encoder = OrdinalEncoder()
+        ordinal_fit = ordinal_encoder.fit(df_fit[cat_cols])
+        df_transformed[cat_cols] = ordinal_fit.transform(df_transformed[cat_cols])
 
-    # Drop original categorical columns & concatenate encoded ones
-    df_transformed = df_transformed.drop(columns=one_hot_cols)
-    df_transformed = pd.concat([df_transformed, encoded_df], axis=1)
-        
-    return df_transformed
+    elif method == 'onehot':
+        one_hot = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
+        onehot_fit = one_hot.fit(df_fit[cat_cols])
+        onehot_transformed = onehot_fit.transform(df_transformed[cat_cols])
+
+        one_hot_feat_names = onehot_fit.get_feature_names_out(cat_cols)
+        one_hot_feat_names = ['ohe_' + name for name in one_hot_feat_names]
+
+        encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+
+        # Drop original categorical columns & concatenate encoded ones
+        df_transformed = df_transformed.drop(columns=cat_cols)
+        df_transformed = pd.concat([df_transformed, encoded_df], axis=1)
+            
+        return df_transformed
+    
+    else:
+        raise ValueError("Invalid method. Choose 'ordinal' or 'onehot'.")
 
 
 # ----------------- SCALING ----------------- #
@@ -119,53 +102,66 @@ def scaling_features(df_fit, df_to_apply, metric_cols, method):
         scaled_df_to_apply (np.ndarray): The scaled dataframe to which the scaler is applied.
     """
 
+    df_to_apply = df_to_apply.copy()
+
     if method == 'minmax':
         #scale your data using MinMaxScaler[0,1]
         min_max = MinMaxScaler().fit(df_fit[metric_cols])
         # Transform the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = min_max.transform(df_to_apply[metric_cols])
+        scaled_array = min_max.transform(df_to_apply[metric_cols])
     elif method == 'minmax2':
         # Create a MinMaxScaler instance that will range between -1 and 1 and fit to your train data
-        min_max = MinMaxScaler(feature_range=(-1, 1)).fit(df_fit[metric_cols])
+        min_max2 = MinMaxScaler(feature_range=(-1, 1)).fit(df_fit[metric_cols])
         # Transform your the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = min_max.transform(df_to_apply[metric_cols])
+        scaled_array = min_max2.transform(df_to_apply[metric_cols])
     elif method == 'standard':
         # Create a StandardScaler instance and fit to your train data
         standard = StandardScaler().fit(df_fit[metric_cols])
         # Transform your the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = standard.transform(df_to_apply[metric_cols])
+        scaled_array = standard.transform(df_to_apply[metric_cols])
     else: 
         robust = RobustScaler().fit(df_fit[metric_cols])
         # Transform your the data from df_to_apply by applying the scale obtained in the previous command
-        scaled_df_to_apply = robust.transform(df_to_apply[metric_cols])
-    return scaled_df_to_apply
+        scaled_array = robust.transform(df_to_apply[metric_cols])
+
+    # Replace the original metric columns with the scaled values
+    df_to_apply[metric_cols] = scaled_array
+
+    return df_to_apply
 
 # ----------------- MISSING VALUES IMPUTATION ----------------- #
 
 # ---------- SIMPLE IMPUTATION ---------- #
+
 # Function to impute missing values based on specified methods
 def simple_imputation(df_fit, df_to_apply):
     """ 
-    Imputes missing values in the dataframe using median/mode for missing values.
+    Imputes missing values in the df_to_apply using SimpleImputer with 'median' for numeric columns and 'most_frequent' for categorical columns.
     Parameters:
         df_fit: dataframe to fit the imputation
         df_to_apply: dataframe to apply the imputation
-        threshold: % below which missing values are considered low
     """
+
     # make a copy of the dataframe to avoid modifying the original data
-    df_fit = df_fit.copy()
     df_to_apply = df_to_apply.copy()
 
-    # define categorical and numerical columns
-    categorical = df_fit.select_dtypes(exclude=['number']).columns.tolist()
-    numerical = df_fit.select_dtypes(include=['number']).columns.tolist()
+    # Define categorical and numerical columns from df_fit
+    metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
+    cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
 
-    for col in numerical:
-        median_value = df_fit[col].median()
-        df_to_apply[col] = df_to_apply[col].fillna(median_value)
-    for col in categorical:
-        mode_value = df_fit[col].mode().iloc[0]
-        df_to_apply[col] = df_to_apply[col].fillna(mode_value)
+    # Ensure columns exist in df_to_apply
+    metric_cols = [m for m in metric_cols if m in df_to_apply.columns]
+    cat_cols = [c for c in cat_cols if c in df_to_apply.columns]
+
+    # Impute missing values for categorical with mode
+    if cat_cols:
+        imputer = SimpleImputer(strategy='most_frequent').fit(df_fit[cat_cols])
+        df_to_apply[cat_cols] = imputer.transform(df_to_apply[cat_cols])
+
+    # Impute missing values for metric with median
+    if metric_cols:
+        imputer = SimpleImputer(strategy='median').fit(df_fit[metric_cols])
+        df_to_apply[metric_cols] = imputer.transform(df_to_apply[metric_cols])
 
     return df_to_apply
 
@@ -185,11 +181,15 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
     df_to_apply = df_to_apply.copy()
 
     # define categorical and numerical columns
-    categorical = ['Brand', 'model', 'transmission', 'fuelType', 'hasDamage', 'is_recent_car', 'mileage_category',
-                   'is_hybrid_or_electric', 'is_automatic', 'is_first_owner']
-    numerical = df_fit.drop(categorical, axis=1).columns.tolist()
+    metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
+    cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
 
-    for col in numerical:
+    # Ensure columns exist in df_to_apply
+    metric_cols = [c for c in metric_cols if c in df_to_apply.columns]
+    cat_cols = [c for c in cat_cols if c in df_to_apply.columns]
+
+    # Impute metric columns using KNNImputer
+    for col in metric_cols:
      # Fit the KNNImputer on the training set
             knn_imputer = KNNImputer(n_neighbors=neighbors, weights='distance')
             knn_imputer.fit(df_fit[[col]])
@@ -197,6 +197,51 @@ def knn_imputation(df_fit, df_to_apply, neighbors=5):
             df_to_apply[[col]] = pd.DataFrame(knn_imputer.transform(df_to_apply[[col]]),
                                             columns=[col],
                                             index=df_to_apply.index)
+
+    return df_to_apply
+
+
+# ----- MISSING VALUES JUNTAS ----- #
+
+def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
+    """
+    Imputes missing values in df_to_apply using specified method for metric cols.
+    Imputes categorical cols using most frequent value.
+    Parameters:
+        df_fit: DataFrame to fit the imputation models (training set)
+        df_to_apply: DataFrame to apply the imputation (training/validation/test set)
+        method: 'simple' for median imputation, 'knn' for KNN imputation
+        neighbors: number of neighbors for KNN imputation
+    """
+
+    df_to_apply = df_to_apply.copy()
+
+    # define categorical and numerical columns
+    metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
+    cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
+
+    # Ensure columns exist in df_to_apply
+    metric_cols = [c for c in metric_cols if c in df_to_apply.columns]
+    cat_cols = [c for c in cat_cols if c in df_to_apply.columns]
+
+    # Imputation for categorical columns: most frequent value
+    if cat_cols:
+        imp_cat = SimpleImputer(strategy="most_frequent")
+        imp_cat.fit(df_fit[cat_cols])
+        df_to_apply[cat_cols] = imp_cat.transform(df_to_apply[cat_cols])
+
+    # Imputation for metric columns: KNN or median
+    if metric_cols:
+        if method == "knn":
+            imp_num = KNNImputer(n_neighbors=neighbors, weights="distance")
+        elif method == "simple":
+            imp_num = SimpleImputer(strategy="median")
+        else :
+            raise ValueError("Invalid method. Choose 'simple' or 'knn'.")
+
+        imp_num.fit(df_fit[metric_cols])
+        df_to_apply[metric_cols] = imp_num.transform(df_to_apply[metric_cols])
+
     return df_to_apply
 
 # ----------------- DATA PREPARATION COMPILATION ----------------- #
