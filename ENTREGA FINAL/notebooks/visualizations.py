@@ -16,9 +16,11 @@ def create_boxplots(df, n_cols=2, figsize=(20, 8)):
         df (DataFrame): The dataset
         n_cols (int): Number of subplot columns (default=2)
         figsize (tuple): Base figure size; height is scaled dynamically
+    Returns:
+        Displays boxplots for each numeric column in the dataset.
     """
-    numeric_cols = df.select_dtypes(include=['number', 'float']).columns # Select numeric columns
-    n_features = len(numeric_cols) # Total number of numeric features
+    metric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
+    n_features = len(metric_cols) # Total number of numeric features
     n_rows = ceil(n_features / n_cols) # Calculate number of rows needed using ceiling to round up
 
     # Dynamic height scaling
@@ -30,7 +32,7 @@ def create_boxplots(df, n_cols=2, figsize=(20, 8)):
 
     sns.set_theme(style="whitegrid", palette="pastel") # Set seaborn theme for aesthetics
 
-    for i, col in enumerate(numeric_cols): # Iterate over numeric columns 
+    for i, col in enumerate(metric_cols): # Iterate over numeric columns 
         ax = axes[i] # Current axis for subplot
 
         sns.boxplot(
@@ -60,11 +62,13 @@ def create_heatmap(df, method, figsize=(10, 8)):
         df (DataFrame): The dataset
         method (str): Correlation method to use (e.g., "pearson", "spearman", "kendall").
         numeric_cols (list): List of numeric columns to include in the correlation matrix.
+    Returns:
+        Displays a heatmap of the correlation matrix.
     """
 
-    numeric_cols = df.select_dtypes(include=['number', 'float']).columns # Select numeric columns
+    metric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
     # Calculate correlation matrix
-    corr = df[numeric_cols].corr(method=method).round(2)
+    corr = df[metric_cols].corr(method=method).round(2)
     # Create a mask for the upper triangle
     mask = np.triu(np.ones_like(corr, dtype=bool))  
     # Visualize correlation matrix
@@ -87,11 +91,12 @@ def create_heatmap(df, method, figsize=(10, 8)):
 
 # ----------------- OUTLIERS SUMMARY ----------------- #
 
-def outlier_summary(df_to_apply, metric_cols):
+def outlier_summary(df_to_apply):
     """Generates a summary table of outliers for each numeric column using IQR method."""
 
     summary = [] # List to hold summary data
-
+    metric_cols = df_to_apply.select_dtypes(include=['number']).columns # Select numeric columns
+    
     for col in metric_cols:  # Iterate over each numeric column
         Q1 = df_to_apply[col].quantile(0.25)
         Q3 = df_to_apply[col].quantile(0.75)

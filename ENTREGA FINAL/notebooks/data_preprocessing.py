@@ -22,7 +22,7 @@ def correct_wrong_values(df):
     Returns:
         df (DataFrame): The dataset with corrected values
     """
-    numeric_cols = df.select_dtypes(include=['number', 'float']).columns # Select numeric columns
+    numeric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
     for col in numeric_cols:
         if (df[col] < 0).any():  # Check for negative values
             df.loc[df[col] < 0, col] = np.nan # Replace negative values with NaN
@@ -168,7 +168,7 @@ def encoding_features(df_fit, df_to_apply):
 # --------------------------------------------------- SCALING --------------------------------------------------- #
 
 # Function to scale features using different scaling methods
-def scaling_features(df_fit, df_to_apply, metric_cols, method):
+def scaling_features(df_fit, df_to_apply, method):
     """ Scales the features of the train and validation sets according to the specified method.
     Args:
         df_fit (pd.DataFrame): The dataframe to fit the scaler.
@@ -181,6 +181,8 @@ def scaling_features(df_fit, df_to_apply, metric_cols, method):
     """
 
     df_to_apply = df_to_apply.copy()
+
+    metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
 
     if method == 'minmax':
         # Scale your data using MinMaxScaler[0,1]
