@@ -54,6 +54,7 @@ def create_boxplots(df, n_cols=2, figsize=(20, 8)):
 
 # ----------------- HEATMAPS ----------------- #
 
+# Function to create heatmap for correlation matrix of numeric columns
 def create_heatmap(df, method, figsize=(10, 8)):
     """
     Creates a heatmap for the correlation matrix of numeric columns.
@@ -91,6 +92,7 @@ def create_heatmap(df, method, figsize=(10, 8)):
 
 # ----------------- OUTLIERS SUMMARY ----------------- #
 
+# Function to generate a summary table of outliers for each numeric column
 def outlier_summary(df_to_apply):
     """Generates a summary table of outliers for each numeric column using IQR method."""
 
