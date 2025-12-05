@@ -266,24 +266,25 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
     metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
     cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
 
-    # Imputation for categorical columns: most frequent value
-    if cat_cols:
-        imp_cat = SimpleImputer(strategy="most_frequent")
-        imp_cat.fit(df_fit[cat_cols])
-        df_to_apply[cat_cols] = imp_cat.transform(df_to_apply[cat_cols])
+    # IMPUTATION FOR CATEGORICAL COLUMNS: MOST FREQUENT VALUE
+    # Create and fit the imputer
+    imp_cat = SimpleImputer(strategy="most_frequent")
+    imp_cat.fit(df_fit[cat_cols])
+    # Apply the imputer to df_to_apply
+    df_to_apply[cat_cols] = imp_cat.transform(df_to_apply[cat_cols])
 
-    # Imputation for metric columns: KNN or median
-    if metric_cols:
-        if method == "knn":
-            imp_num = KNNImputer(n_neighbors=neighbors, weights="distance")
-        elif method == "simple":
-            imp_num = SimpleImputer(strategy="median")
-        # Ensure the input method is valid
-        else :
-            raise ValueError("Invalid method. Choose 'simple' or 'knn'.")
-
-        imp_num.fit(df_fit[metric_cols])
-        df_to_apply[metric_cols] = imp_num.transform(df_to_apply[metric_cols])
+    # IMPUTATION FOR METRIC COLUMNS: KNN OR MEDIAN
+    # Create and fit the imputer based on the selected method
+    if method == "knn":
+        imp_num = KNNImputer(n_neighbors=neighbors, weights="distance")
+    elif method == "simple":
+        imp_num = SimpleImputer(strategy="median")
+    # Ensure the input method is valid
+    else :
+        raise ValueError("Invalid method. Choose 'simple' or 'knn'.")
+    # Fit and transform the metric columns
+    imp_num.fit(df_fit[metric_cols])
+    df_to_apply[metric_cols] = imp_num.transform(df_to_apply[metric_cols])
 
     return df_to_apply
 
