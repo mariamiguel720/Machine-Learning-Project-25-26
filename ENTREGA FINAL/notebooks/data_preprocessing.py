@@ -9,29 +9,59 @@ from math import ceil
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler, RobustScaler
 
+from feature_engineering import *
+
 
 # --------------------------------------------------- CORRECT VALUES -------------------------------------------- #
 
 # ----------------- INVALID VALUES ----------------- #
 
 # Function to correct invalid values in the DataFrame
-def correct_wrong_values(df):
-    """Corrects invalid values in the DataFrame:
+def correct_metric_features(df):
+    """ Corrects invalid values in the DataFrame by replacing negative numeric values with NaN and 
+    rounding specific columns to integers.
     Parameters:
-        df (DataFrame): The dataset
+        df: DataFrame to correct
     Returns:
-        df (DataFrame): The dataset with corrected values
+        df: Corrected DataFrame
     """
 
     df = df.copy()
 
     numeric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
+
+    # Replace negative values with NaN
     for col in numeric_cols:
         if (df[col] < 0).any():  # Check for negative values
             df.loc[df[col] < 0, col] = np.nan # Replace negative values with NaN
-    for col in ['year', 'previousOwners']: #Rounds numeric values: values with decimal part >= 0.5 go up, others go down.
+    
+    # Round specific columns to integers
+    for col in ['year', 'previousOwners', 'hasDamage']: #Rounds numeric values: values with decimal part >= 0.5 go up, others go down.
         df[col] = df[col].astype('Int64') # Use 'Int64' to allow for NaN values
+    
+    # Fill NaN values in 'hasDamage' with 1 (assuming missing means there is damage)
+    df['hasDamage'] = df['hasDamage'].fillna(1)
+
     return df 
+
+# ----------------- CATEGORY REPLACEMENTS ----------------- #
+
+# Function to replace 'Other' category in 'transmission' column
+def replace_category_transmission(df):
+    """ Replaces 'Other' category in 'transmission' column with 'unknown'.
+    Parameters:
+        df: DataFrame to correct
+    Returns:
+        df: Corrected DataFrame
+    """
+
+    df = df.copy()
+
+    # Replace 'Other' with 'unknown' in 'transmission' column
+    df['transmission'] = df['transmission'].replace('Other', 'unknown')
+
+    return df
+
 
 # --------------------------------------------------- CATEGORICAL CORRECTIONS ----------------------------------- #
 
