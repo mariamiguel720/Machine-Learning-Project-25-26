@@ -37,7 +37,7 @@ def correct_metric_features(df):
     
     # Round specific columns to integers
     for col in ['year', 'previousOwners', 'hasDamage']: #Rounds numeric values: values with decimal part >= 0.5 go up, others go down.
-        df[col] = df[col].astype('Int64') # Use 'Int64' to allow for NaN values
+        df[col] = df[col].round().astype('Int64') # Use 'Int64' to allow for NaN values
     
     # Fill NaN values in 'hasDamage' with 1 (assuming missing means there is damage)
     df['hasDamage'] = df['hasDamage'].fillna(1)
