@@ -1,69 +1,76 @@
 # ---------------------LIBRARIES --------------------- #
-import pandas as pd 
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib.pyplot as plt
-import os
+from sklearn.model_selection import RandomizedSearchCV
 
 
-# Linear Regression - OLS, ridge, lasso, elastic net regression
-from sklearn.linear_model import LinearRegression, RidgeCV, LassoCV, ElasticNetCV
+# --------------------------------------- APPLY RANDOMIZED SEARCH CV -------------------------------------- #
 
-from sklearn.ensemble import RandomForestRegressor
+# Function to apply RandomizedSearchCV
+def apply_randomized_search_cv(model, param_grid, iterations, scoring, refit, pred_split, X_fit, y_fit):
+
+    # Create RandomizedSearchCV
+    randomized_model = RandomizedSearchCV(
+        estimator=model,
+        param_distributions=param_grid,
+        n_iter=iterations,
+        scoring=scoring,
+        refit=refit,
+        cv=pred_split,
+        verbose=1,
+        return_train_score=True,
+        random_state=42
+    )
+
+    # Fit the model
+    randomized_model.fit(X_fit, y_fit)
+
+    return randomized_model
 
 
-#Model evaluation
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, median_absolute_error, mean_absolute_percentage_error
-import statsmodels.api as sm
 
-# ----------------- MODEL AND ASSESSMENT ----------------- #
+# --------------------------------------- EVALUATE MODEL -------------------------------------- #
 
-def train_model(model, X_train, y_train):
-    """ Train the given model on provided data."""
-    model.fit(X_train, y_train) # Fit the model
-    return model
+# Function to evaluate the model
+def evaluate_model(randomized_model):
+        # Get results dictionary
+    results = randomized_model.cv_results_
 
-def evaluate_model(model, X, y):
-    """Evaluate a regression model using multiple metrics:
-    R2, Adjusted R2, MAE, MSE, RMSE, MedAE, MAPE."""
-    n_samples = X.shape[0] # number of observations
-    n_features = X.shape[1] # number of features
-    
-    y_pred = model.predict(X) # predicted values
-    
-    # Calculate metrics
-    r2 = r2_score(y, y_pred)
-    adj_r2 = 1 - (1 - r2) * (n_samples - 1) / (n_samples - n_features - 1)
-    mae = mean_absolute_error(y, y_pred)
-    mse = mean_squared_error(y, y_pred)
-    rmse = rmse = np.sqrt(mse)
-    medae = median_absolute_error(y, y_pred)
-    mape = mean_absolute_percentage_error(y, y_pred)
+    # --- Extract scores for R2 ---
+    mean_train_r2 = results['mean_train_r2']
+    mean_val_r2   = results['mean_test_r2']
 
-# Compile metrics into a dictionary
-    metrics_dict = {
-        'R2': r2,
-        'Adjusted R2': adj_r2,
-        'MAE': mae,
-        'MSE': mse,
-        'RMSE': rmse,
-        'MedAE': medae,
-        'MAPE (%)': mape
-    }
-    return metrics_dict
+    # --- Extract scores for MAE ---
+    # Atenção: ainda vêm como NEG-MAE, por isso aplicamos -
+    mean_train_mae = -results['mean_train_mae']
+    mean_val_mae   = -results['mean_test_mae']
 
-# Create comparison DataFrame
-def comparison_metrics(model, X_train, y_train, X_val, y_val):
-    """Create a comparison DataFrame for training and validation metrics."""
+    # Extract parameters
+    parameters = results['params']
 
-    metrics_train = evaluate_model(model, X_train, y_train)
-    metrics_val = evaluate_model(model, X_val, y_val)
-    
-    comparison_df = pd.DataFrame({
-        'Metric': list(metrics_train.keys()),
-        'Train': list(metrics_train.values()),
-        'Validation': list(metrics_val.values()),
-        'Iteration': model.n_iter_
-    })
-    return comparison_df
+    # Print each candidate with R2 + MAE + gap
+    for r2_t, r2_v, mae_t, mae_v, params in zip(mean_train_r2, mean_val_r2,
+                                                mean_train_mae, mean_val_mae, parameters):
+        print(
+            f"Train R2={r2_t:.3f} | Val R2={r2_v:.3f} | "
+            f"Train MAE={mae_t:.1f} | Val MAE={mae_v:.1f} | "
+            f"Gap R2={r2_t - r2_v:.3f} | Params={params}"
+        )
+
+    # --- Best models based on refit metric (MAE) ---
+    best_idx = randomized_model.best_index_
+
+    best_train_r2 = results['mean_train_r2'][best_idx]
+    best_val_r2   = results['mean_test_r2'][best_idx]
+
+    best_train_mae = -results['mean_train_mae'][best_idx]
+    best_val_mae   = -results['mean_test_mae'][best_idx]
+
+    best_params = results['params'][best_idx]
+
+    print("\n=== BEST MODEL (based on MAE) ===")
+    print("Best train R2:", best_train_r2)
+    print("Best validation R2:", best_val_r2)
+    print("Best train MAE:", best_train_mae)
+    print("Best validation MAE:", best_val_mae)
+    print("R2 Gap:", (best_train_r2 - best_val_r2) / best_train_r2 * 100, "%")
+    print("Best parameters:", best_params)
+
