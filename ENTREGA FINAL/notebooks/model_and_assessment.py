@@ -69,8 +69,9 @@ def evaluate_model(randomized_model):
     print("\n=== BEST MODEL (based on MAE) ===")
     print("Best train R2:", best_train_r2)
     print("Best validation R2:", best_val_r2)
+    print("R2 Gap:", (best_train_r2 - best_val_r2) / best_train_r2 * 100, "%")
     print("Best train MAE:", best_train_mae)
     print("Best validation MAE:", best_val_mae)
-    print("R2 Gap:", (best_train_r2 - best_val_r2) / best_train_r2 * 100, "%")
+    print("MAE Gap:", (best_val_mae - best_train_mae) / best_train_mae * 100, "%")
     print("Best parameters:", best_params)
 
