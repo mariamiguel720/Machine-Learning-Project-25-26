@@ -149,7 +149,7 @@ def treat_outliers_custom(df_fit, df_to_apply):
     # Fixed limits
     df_to_apply['year'] = df_to_apply['year'].clip(lower=1990, upper=2020)
     df_to_apply['engineSize'] = df_to_apply['engineSize'].clip(lower=0.9, upper=5.5)
-    df_to_apply['previousOwners'] = df_to_apply['previousOwners'].clip(lower=0, upper=8)
+    df_to_apply['previousOwners'] = df_to_apply['previousOwners'].clip(lower=0, upper=6)
 
     # IQR based limits
     for col in ['mileage', 'tax', 'mpg']:
