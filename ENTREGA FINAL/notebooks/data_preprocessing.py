@@ -7,7 +7,7 @@ from pyparsing import col
 import seaborn as sns
 from math import ceil
 from sklearn.impute import KNNImputer, SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler, RobustScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, TargetEncoder, LabelEncoder, OrdinalEncoder
 
 from feature_engineering import *
 
@@ -168,8 +168,8 @@ def treat_outliers_custom(df_fit, df_to_apply):
 # --------------------------------------------------- ENCODING --------------------------------------------------- #
 
 # Function to encode categorical features using One-Hot Encoding
-def encoding_features(df_fit, df_to_apply):
-    """ Encode categorical features using One-Hot Encoding. 
+def encoding_features(X_fit, Y_fit, df_to_apply):
+    """     Encode categorical features using Target, Label and Ordinal Encoding. 
     Parameters:
         df_fit: DataFrame to fit the encoders (training set)
         df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
@@ -179,25 +179,66 @@ def encoding_features(df_fit, df_to_apply):
 
     df_to_apply = df_to_apply.copy()
 
-    # Define categorical columns from df_fit
-    cat_cols = df_fit.select_dtypes(exclude=['number']).columns.tolist()
+    target_cols = ['Brand', 'model']
+    label_cols = ['transmission', 'fuelType']
+    ordinal_cols = ['mileage_category']
 
-    # Apply One-Hot Encoding
-    one_hot = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
-    onehot_fit = one_hot.fit(df_fit[cat_cols])
-    onehot_transformed = onehot_fit.transform(df_to_apply[cat_cols])
+    numeric_features = X_fit.columns.drop(target_cols + label_cols + ordinal_cols)
 
-    # Get features names
-    one_hot_feat_names = onehot_fit.get_feature_names_out(cat_cols)
-    one_hot_feat_names = ['ohe_' + name for name in one_hot_feat_names]
+# -----------  TARGET ENCODING ----------- #
+    # Call Target Encoder and fit to train data
+    # CV is only going to be aplied during training fitting phase
+    target_enc = TargetEncoder(cv=5, smooth='auto', random_state=40111).fit(X_fit[target_cols], Y_fit)        
 
-    # Create DataFrame with encoded features
-    encoded_df = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
+    # Transform the data from df_to_apply by applying the encoding obtained in the previous command
+    data_encoded = target_enc.transform(df_to_apply[target_cols])
 
-    # Drop original categorical columns & concatenate encoded ones
-    df_to_apply = df_to_apply.drop(columns=cat_cols)
-    df_to_apply = pd.concat([df_to_apply, encoded_df], axis=1)
+    # Convert to DataFrame
+    df_target = pd.DataFrame(
+        data_encoded,
+        columns=[f'{col}_target' for col in target_cols],
+        index=df_to_apply.index
+    )
+    
+    df_label = pd.DataFrame(index=df_to_apply.index)
+
+
+# -----------  LABEL ENCODING ----------- #
+    for col in label_cols:
+        # HANDLE UNKNOWNS
+        # Identify training values
+        train_values = set(X_fit[col].unique())
         
+        # Replace unknown categories with 'Unknown'
+        df_to_apply_label = df_to_apply[col].copy()
+        mask_unknown = ~df_to_apply_label.isin(train_values)
+        df_to_apply_label[mask_unknown] = 'Unknown'
+
+        if mask_unknown.any():
+            X_fit_extended = pd.concat([
+                X_fit[col], 
+                pd.Series(['Unknown'])
+            ])
+        else:
+            X_fit_extended = X_fit[col]
+
+        #Call Label Encoder
+        label_enc = LabelEncoder().fit(X_fit_extended)
+
+        #Transform the data from df_to_apply by applying the encoding obtained in the previous command
+        df_label[f'{col}_label'] = label_enc.transform(df_to_apply_label)
+          
+
+# -----------  ORDINAL ENCODING ----------- #
+    ordinal_mapping = {'Very Low': 0, 'Low': 1, 'Medium': 2, 'High': 3, 'Very High': 4}
+    df_ordinal = pd.DataFrame(
+        df_to_apply['mileage_category'].map(ordinal_mapping).fillna(-1).astype(int),
+        columns=['mileage_category_ordinal'],
+        index=df_to_apply.index
+    )
+
+    df_to_apply = pd.concat([df_to_apply[numeric_features], df_target, df_label, df_ordinal], axis=1)
+
     return df_to_apply
     
 
@@ -209,7 +250,6 @@ def scaling_features(df_fit, df_to_apply, method):
     Args:
         df_fit (pd.DataFrame): The dataframe to fit the scaler.
         df_to_apply (pd.DataFrame): The dataframe to apply the scaler.
-        metric_cols (list): List of numeric columns to scale.
         method (str): The scaling method to use. Options are 'minmax' - between 0 and 1, 'minmax2' - between -1 and 1, 
         'standard', and 'robust'.
     Returns:
@@ -221,23 +261,23 @@ def scaling_features(df_fit, df_to_apply, method):
     metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
 
     if method == 'minmax':
-        # Scale your data using MinMaxScaler[0,1]
+        # Scale the data using MinMaxScaler[0,1]
         min_max = MinMaxScaler().fit(df_fit[metric_cols])
         # Transform the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = min_max.transform(df_to_apply[metric_cols])
     elif method == 'minmax2':
-        # Create a MinMaxScaler instance that will range between -1 and 1 and fit to your train data
+        # Create a MinMaxScaler instance that will range between -1 and 1 and fit to the train data
         min_max2 = MinMaxScaler(feature_range=(-1, 1)).fit(df_fit[metric_cols])
-        # Transform your the data from df_to_apply by applying the scale obtained in the previous command
+        # Transform the the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = min_max2.transform(df_to_apply[metric_cols])
     elif method == 'standard':
-        # Create a StandardScaler instance and fit to your train data
+        # Create a StandardScaler instance and fit to the train data
         standard = StandardScaler().fit(df_fit[metric_cols])
-        # Transform your the data from df_to_apply by applying the scale obtained in the previous command
+        # Transform the the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = standard.transform(df_to_apply[metric_cols])
     else: 
         robust = RobustScaler().fit(df_fit[metric_cols])
-        # Transform your the data from df_to_apply by applying the scale obtained in the previous command
+        # Transform the the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = robust.transform(df_to_apply[metric_cols])
 
     # Replace the original metric columns with the scaled values

@@ -80,7 +80,7 @@ def remove_highly_correlated_features(df_fit, df_to_apply, threshold = 0.9, retu
             return_summary: If True, prints a summary of the features removed.
         Returns:
             df_to_apply: DataFrame with highly correlated features removed.
-            to_drop: List of features that were removed."""
+        """
     
 
     df_to_apply = df_to_apply.copy()
