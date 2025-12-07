@@ -7,7 +7,7 @@ from pyparsing import col
 import seaborn as sns
 from math import ceil
 from sklearn.impute import KNNImputer, SimpleImputer
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, TargetEncoder, LabelEncoder, OrdinalEncoder
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, TargetEncoder, OneHotEncoder, OrdinalEncoder
 
 from feature_engineering import *
 
@@ -167,9 +167,9 @@ def treat_outliers_custom(df_fit, df_to_apply):
 
 # --------------------------------------------------- ENCODING --------------------------------------------------- #
 
-# Function to encode categorical features using One-Hot Encoding
+# Function to encode categorical features using different Encoding methods
 def encoding_features(X_fit, Y_fit, df_to_apply):
-    """     Encode categorical features using Target, Label and Ordinal Encoding. 
+    """     Encode categorical features using Target, One-Hot and Ordinal Encoding. 
     Parameters:
         df_fit: DataFrame to fit the encoders (training set)
         df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
@@ -180,15 +180,17 @@ def encoding_features(X_fit, Y_fit, df_to_apply):
     df_to_apply = df_to_apply.copy()
 
     target_cols = ['Brand', 'model']
-    label_cols = ['transmission', 'fuelType']
+    one_hot_cols = ['transmission', 'fuelType']
     ordinal_cols = ['mileage_category']
 
-    numeric_features = X_fit.columns.drop(target_cols + label_cols + ordinal_cols)
+    numeric_features = X_fit.columns.drop(target_cols + one_hot_cols + ordinal_cols)
 
 # -----------  TARGET ENCODING ----------- #
+
+    Y_fit_continuous = Y_fit.astype(float) # Ensure Y_fit is continuous
     # Call Target Encoder and fit to train data
     # CV is only going to be aplied during training fitting phase
-    target_enc = TargetEncoder(cv=5, smooth='auto', random_state=40111).fit(X_fit[target_cols], Y_fit)        
+    target_enc = TargetEncoder(cv=5, smooth='auto', random_state=40111, target_type='continuous').fit(X_fit[target_cols], Y_fit_continuous)        
 
     # Transform the data from df_to_apply by applying the encoding obtained in the previous command
     data_encoded = target_enc.transform(df_to_apply[target_cols])
@@ -199,45 +201,35 @@ def encoding_features(X_fit, Y_fit, df_to_apply):
         columns=[f'{col}_target' for col in target_cols],
         index=df_to_apply.index
     )
+
+# -----------  ONE-HOT ENCODING ----------- #
+    ohe = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
+    onehot_fit = ohe.fit(X_fit[one_hot_cols])
+    onehot_transformed = onehot_fit.transform(df_to_apply[one_hot_cols])
+
+    one_hot_feat_names = onehot_fit.get_feature_names_out(one_hot_cols)
+    one_hot_feat_names = [f"{name}_ohe" for name in one_hot_feat_names]
+
+    df_ohe = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
     
-    df_label = pd.DataFrame(index=df_to_apply.index)
-
-
-# -----------  LABEL ENCODING ----------- #
-    for col in label_cols:
-        # HANDLE UNKNOWNS
-        # Identify training values
-        train_values = set(X_fit[col].unique())
-        
-        # Replace unknown categories with 'Unknown'
-        df_to_apply_label = df_to_apply[col].copy()
-        mask_unknown = ~df_to_apply_label.isin(train_values)
-        df_to_apply_label[mask_unknown] = 'Unknown'
-
-        if mask_unknown.any():
-            X_fit_extended = pd.concat([
-                X_fit[col], 
-                pd.Series(['Unknown'])
-            ])
-        else:
-            X_fit_extended = X_fit[col]
-
-        #Call Label Encoder
-        label_enc = LabelEncoder().fit(X_fit_extended)
-
-        #Transform the data from df_to_apply by applying the encoding obtained in the previous command
-        df_label[f'{col}_label'] = label_enc.transform(df_to_apply_label)
-          
 
 # -----------  ORDINAL ENCODING ----------- #
-    ordinal_mapping = {'Very Low': 0, 'Low': 1, 'Medium': 2, 'High': 3, 'Very High': 4}
+    categories = [['Very Low', 'Low', 'Medium', 'High', 'Very High']]
+    enc = OrdinalEncoder(
+        categories=categories,
+        handle_unknown='use_encoded_value', # Handle unknown categories by encoding them with a specific value
+        unknown_value=-1, dtype=int) # Ensure integer type
+    enc.fit(X_fit[ordinal_cols])
+
+    ordinal_transformed = enc.transform(df_to_apply[ordinal_cols])
+    
     df_ordinal = pd.DataFrame(
-        df_to_apply['mileage_category'].map(ordinal_mapping).fillna(-1).astype(int),
-        columns=['mileage_category_ordinal'],
-        index=df_to_apply.index
+        ordinal_transformed,
+        index=df_to_apply.index,
+        columns=[f'{col}_ordinal' for col in ordinal_cols]
     )
 
-    df_to_apply = pd.concat([df_to_apply[numeric_features], df_target, df_label, df_ordinal], axis=1)
+    df_to_apply = pd.concat([df_to_apply[numeric_features], df_target, df_ohe, df_ordinal], axis=1)
 
     return df_to_apply
     
@@ -258,7 +250,8 @@ def scaling_features(df_fit, df_to_apply, method):
 
     df_to_apply = df_to_apply.copy()
 
-    metric_cols = df_fit.select_dtypes(include=['number']).columns.tolist()
+    one_hot_cols = [col for col in df_fit.columns if col.endswith('_ohe')]
+    metric_cols = [col for col in metric_cols if col not in one_hot_cols]
 
     if method == 'minmax':
         # Scale the data using MinMaxScaler[0,1]
