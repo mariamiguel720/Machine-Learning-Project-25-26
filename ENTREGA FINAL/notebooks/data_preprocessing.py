@@ -251,8 +251,10 @@ def scaling_features(df_fit, df_to_apply, method):
     df_to_apply = df_to_apply.copy()
 
     one_hot_cols = [col for col in df_fit.columns if col.endswith('_ohe')]
-    metric_cols = [col for col in metric_cols if col not in one_hot_cols]
-
+    metric_cols = [
+        col for col in df_fit.columns
+        if col not in one_hot_cols and pd.api.types.is_numeric_dtype(df_fit[col])
+    ]
     if method == 'minmax':
         # Scale the data using MinMaxScaler[0,1]
         min_max = MinMaxScaler().fit(df_fit[metric_cols])
