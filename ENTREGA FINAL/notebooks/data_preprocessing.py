@@ -135,7 +135,7 @@ def clean_with_diff(df, column, threshold_short, threshold_long):
 # --------------------------------------------------- OUTLIERS TREATMENT --------------------------------------------------- #
 
 # Function to treat outliers based on custom rules
-def treat_outliers_custom(df_fit, df_to_apply):
+def treat_outliers_custom(df_fit, df_to_apply, threshold=2.2):
     """ Treats outliers in df_to_apply based on custom rules defined for each column.
     Parameters:
         df_fit (pd.DataFrame): The dataframe to fit the outlier treatment rules.
@@ -157,8 +157,8 @@ def treat_outliers_custom(df_fit, df_to_apply):
         q1 = df_fit[col].quantile(0.25)
         q3 = df_fit[col].quantile(0.75)
         iqr = q3 - q1
-        lower = q1 - 2.2 * iqr
-        upper = q3 + 2.2 * iqr
+        lower = q1 - threshold * iqr
+        upper = q3 + threshold * iqr
 
         # Cap the outliers
         df_to_apply[col] = df_to_apply[col].clip(lower=lower, upper=upper)
