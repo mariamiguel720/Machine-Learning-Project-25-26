@@ -180,8 +180,8 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
     low_score = math.inf
     #Variable to store the optimum features
     nof=0           
-    train_score_list =[]
-    val_score_list = []
+    train_mae_list =[]
+    val_mae_list = []
 
     for n in range(len(nof_list)):
         model_instance = model(random_state=42)
@@ -191,17 +191,10 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
         X_val_rfe = rfe.transform(df_to_apply)
         model_instance.fit(X_train_rfe,y_fit)
         
-        #storing results on training data
-        train_score = model_instance.score(X_train_rfe,y_fit)
-        train_score_list.append(train_score)
-        
         #storing results on validation data
-        val_score = model_instance.score(X_val_rfe,y_apply)
-        val_score_list.append(val_score)
-
-        #calculating MAE
-        train_mae = mean_absolute_error(y_fit, model_instance.predict(X_train_rfe))
         val_mae = mean_absolute_error(y_apply, model_instance.predict(X_val_rfe))
+        val_mae_list.append(val_mae)
+
         
         #check best score
         if val_mae < low_score:
