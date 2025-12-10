@@ -52,7 +52,7 @@ def evaluate_model(randomized_model):
         print(
             f"Train R2={r2_t:.3f} | Val R2={r2_v:.3f} | "
             f"Train MAE={mae_t:.1f} | Val MAE={mae_v:.1f} | "
-            f"Gap R2={r2_t - r2_v:.3f} | Params={params}"
+            f"Gap MAE={mae_t - mae_v:.3f} | Params={params}"
         )
 
     # --- Best models based on refit metric (MAE) ---
