@@ -33,63 +33,53 @@ from sklearn.linear_model import Lasso
 # ------------------ VARIANCE THRESHOLD ------------------ #
 
 # Remove constant or low-variance numerical features
-def apply_variance_filter(df_fit, df_to_apply, threshold=0.0, return_summary=False):
-    """ Removes constant or low-variance numerical features based on training data only.
+def apply_variance_filter(df, threshold=0.0, return_summary=False):
+    """ Removes constant or low-variance numerical features.
         Parameters:
-            df_fit: DataFrame used to fit the VarianceThreshold selector (e.g., training set).
-            df_to_apply: DataFrame to apply the feature selection (e.g., validation or test set).
+            df: DataFrame to apply the feature selection.
             threshold: Variance threshold below which features will be removed.
-            return_summary: If True, prints a summary of the features removed.
+            return_summary: If True, prints a summary of the selection process.
         Returns:
-            df_to_apply_f: DataFrame with low-variance features removed.
+            cols_to_keep_1: List of feature names kept after applying variance threshold.
     """
 
-    df_to_apply = df_to_apply.copy()
-
     # Select numerical columns
-    metric_cols = df_fit.select_dtypes(include='number').columns
+    metric_cols = df.select_dtypes(include='number').columns
 
     # Fit selector on training data
     selector = VarianceThreshold(threshold=threshold)
-    selector.fit(df_fit[metric_cols])
+    selector.fit(df[metric_cols])
 
     # Get kept feature names
-    kept_features = metric_cols[selector.get_support()]
-
-    # Apply to df_to_apply
-    df_to_apply = df_to_apply[kept_features]
+    cols_to_keep_1 = metric_cols[selector.get_support()]
 
     # Print summary if requested
     if return_summary:
-        print(f"Total features kept: {len(kept_features)}")
-        print(f"Features selected: {kept_features.tolist()}")
-        print(f"Nº Features eliminated: {len(metric_cols) - len(kept_features)}")
+        print(f"Total features kept: {len(cols_to_keep_1)}")
+        print(f"Features selected: {cols_to_keep_1.tolist()}")
+        print(f"Nº Features eliminated: {len(metric_cols) - len(cols_to_keep_1)}")
 
-    return df_to_apply
+    return cols_to_keep_1
 
 
 # ------------------ HIGHLY CORRELATED FEATURES ------------------ #
 
 # Remove one feature from each pair of highly correlated numerical features
-def remove_highly_correlated_features(df_fit, df_to_apply, threshold = 0.9, return_summary=False):
-    """ Removes one feature from each pair of highly correlated numerical features based on training data only.
+def remove_highly_correlated_features(df, threshold = 0.9, return_summary=False):
+    """ Removes one feature from each pair of highly correlated numerical features.
         Parameters:
-            df_fit: DataFrame used to compute correlations (e.g., training set).
-            df_to_apply: DataFrame to apply the feature selection (e.g., validation or test set).
+            df: DataFrame to apply the feature selection.
             threshold: Correlation threshold above which one feature from the pair will be removed.
-            return_summary: If True, prints a summary of the features removed.
+            return_summary: If True, prints a summary of the selection process.
         Returns:
-            df_to_apply: DataFrame with highly correlated features removed.
-        """
-    
-
-    df_to_apply = df_to_apply.copy()
+            cols_to_keep_2: List of feature names kept after removing highly correlated features.
+    """
 
     # Select only numerical columns
-    num_cols = df_fit.select_dtypes(include='number').columns
+    num_cols = df.select_dtypes(include='number').columns
     
     # Compute absolute correlation matrix
-    corr_matrix = df_fit[num_cols].corr(method='spearman').abs()
+    corr_matrix = df[num_cols].corr(method='spearman').abs()
     
     # Create mask for the upper triangle
     upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
@@ -98,10 +88,7 @@ def remove_highly_correlated_features(df_fit, df_to_apply, threshold = 0.9, retu
     to_drop = [column for column in upper.columns if any(upper[column] > threshold)]
 
     # Identify features to keep
-    cols_to_keep_2 = [col for col in df_to_apply.columns if col not in to_drop]
-
-    # Apply to df_to_apply
-    df_to_apply = df_to_apply[cols_to_keep_2]
+    cols_to_keep_2 = [col for col in df.columns if col not in to_drop]
 
     # Print summary if requested
     if return_summary:
@@ -109,39 +96,34 @@ def remove_highly_correlated_features(df_fit, df_to_apply, threshold = 0.9, retu
         print(f"Features selected: {cols_to_keep_2}")
         print(f"Nº Features eliminated: {len(to_drop)}")
     
-    return df_to_apply
+    return cols_to_keep_2
 
 
 
 # ------------------ CORRELATION WITH THE TARGET ------------------ #
 
 # Select numerical features based on Spearman correlation with the target variable
-def spearman_correlation_selection(df_fit, df_to_apply, target, threshold=0.3, return_summary=False):
+def spearman_correlation_selection(df, target, threshold=0.3, return_summary=False):
     """ Selects numerical features based on Spearman correlation with the target variable.
         Parameters:
-            df_fit: DataFrame used to compute correlations (e.g., training set).
-            df_to_apply: DataFrame to apply the feature selection (e.g., validation or test set).
-            target: Series or array-like target variable corresponding to df_fit.
-            threshold: Minimum absolute Spearman correlation required to keep a feature.
+            df: DataFrame to apply the feature selection.
+            target: Series or array-like target variable corresponding to df.
+            threshold: Correlation threshold above which features will be kept.
             return_summary: If True, prints a summary of the selection process.
         Returns:
-            DataFrame with selected features based on Spearman correlation.
+            cols_to_keep_3: List of feature names kept after applying Spearman correlation selection.
     """
 
-    df_to_apply = df_to_apply.copy()
-
     # Select numerical columns
-    metric_cols = df_fit.select_dtypes(include='number').columns.tolist()
+    metric_cols = df.select_dtypes(include='number').columns.tolist()
 
     # Compute Spearman correlation for all features with the target
-    corr = df_fit[metric_cols].apply(lambda feat: spearmanr(feat, target)[0])
+    corr = df[metric_cols].apply(lambda feat: spearmanr(feat, target)[0])
     # Absolute values and sort descending
     corr = corr.abs().sort_values(ascending=False)
 
     # Select features with Spearman correlation above the threshold
     cols_to_keep_3 = corr[corr > threshold].index.tolist()  
-
-    df_to_apply = df_to_apply[cols_to_keep_3]
 
     # Print summary if requested
     if return_summary:
@@ -161,12 +143,11 @@ def spearman_correlation_selection(df_fit, df_to_apply, target, threshold=0.3, r
 # ------------------ RFE - Recursive Feature Elimination ------------------ #
 
 # Select features using Recursive Feature Elimination (RFE) method
-def rfe_selection(df_fit, df_to_apply, target, rfe_model, n_features, return_summary = False):
+def rfe_selection(df, target, rfe_model, n_features, return_summary = False):
     """ Selects features using Recursive Feature Elimination (RFE) method.
         Parameters:
-            df_fit: DataFrame used to fit the RFE selector (e.g., training set).
-            df_to_apply: DataFrame to apply the feature selection (e.g., validation or test set).
-            target: Series or array-like target variable corresponding to df_fit.
+            df: DataFrame to apply the feature selection.
+            target: Series or array-like target variable corresponding to df.
             rfe_model: Estimator object to use for RFE.
             n_features: Number of features to select.
             return_summary: If True, prints a summary of the selection process.
@@ -177,16 +158,16 @@ def rfe_selection(df_fit, df_to_apply, target, rfe_model, n_features, return_sum
     rfe = RFE(estimator = rfe_model, n_features_to_select = n_features)
 
     # Fit RFE on the training data
-    fitted_rfe = rfe.fit(df_fit, target)
+    fitted_rfe = rfe.fit(df, target)
 
     # Get selected feature names
-    cols_to_keep_4 = df_fit.columns[fitted_rfe.support_].tolist()
+    cols_to_keep_4 = df.columns[fitted_rfe.support_].tolist()
 
     # Print summary if requested
     if return_summary:
         print(f"Total features kept: {len(cols_to_keep_4)}")
         print(f"Features selected by RFE method: {cols_to_keep_4}")
-        print(f"Nº Features eliminated: {df_fit.shape[1] - len(cols_to_keep_4)}")
+        print(f"Nº Features eliminated: {df.shape[1] - len(cols_to_keep_4)}")
 
     return cols_to_keep_4
 
@@ -198,28 +179,27 @@ def rfe_selection(df_fit, df_to_apply, target, rfe_model, n_features, return_sum
 # ------------------ LASSO ------------------ #
 
 # Select features using Lasso regression method
-def lasso_selection(df_fit, df_to_apply, target, threshold, return_summary=False):
+def lasso_selection(df, target, threshold, return_summary=False):
     """ Selects features using Lasso regression method.
         Parameters:
-            df_fit: DataFrame used to fit the Lasso model (e.g., training set).
-            df_to_apply: DataFrame to apply the feature selection (e.g., validation or test set).
-            target: Series or array-like target variable corresponding to df_fit.
+            df: DataFrame to apply the feature selection.
+            target: Series or array-like target variable corresponding to df.
             threshold: Coefficient threshold below which features will be removed.
             return_summary: If True, prints a summary of the selection process.
         Returns:
             DataFrame with selected features based on Lasso method.
     """
     # Fit Lasso model on the training data 
-    fitted_lasso = Lasso(max_iter = 15000,random_state=42).fit(df_fit, target)
+    fitted_lasso = Lasso(max_iter = 15000,random_state=42).fit(df, target)
 
     # Get selected feature names
-    cols_to_keep_5 = df_fit.columns[np.abs(fitted_lasso.coef_) > threshold].tolist()
+    cols_to_keep_5 = df.columns[np.abs(fitted_lasso.coef_) > threshold].tolist()
 
     # Print summary if requested
     if return_summary:
         print(f"Total features kept: {len(cols_to_keep_5)}")
         print(f"Features selected by Lasso method: {cols_to_keep_5}")
-        print(f"Nº Features eliminated: {df_fit.shape[1] - len(cols_to_keep_5)}")
+        print(f"Nº Features eliminated: {df.shape[1] - len(cols_to_keep_5)}")
     
     return cols_to_keep_5
 

@@ -9,8 +9,6 @@ from math import ceil
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, TargetEncoder, OneHotEncoder, OrdinalEncoder
 
-from feature_engineering import *
-
 
 # --------------------------------------------------- CORRECT VALUES -------------------------------------------- #
 
