@@ -20,8 +20,9 @@ from sklearn.feature_selection import mutual_info_classif
 
 #wrapper methods
 from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.feature_selection import RFE
+from sklearn.metrics import mean_absolute_error
 
 
 # embedded methods
@@ -142,34 +143,84 @@ def spearman_correlation_selection(df, target, threshold=0.3, return_summary=Fal
 
 # ------------------ RFE - Recursive Feature Elimination ------------------ #
 
-# Select features using Recursive Feature Elimination (RFE) method
-def rfe_selection(df, target, rfe_model, n_features, return_summary = False):
-    """ Selects features using Recursive Feature Elimination (RFE) method.
-        Parameters:
-            df: DataFrame to apply the feature selection.
-            target: Series or array-like target variable corresponding to df.
-            rfe_model: Estimator object to use for RFE.
-            n_features: Number of features to select.
-            return_summary: If True, prints a summary of the selection process.
-        Returns:
-            DataFrame with selected features based on RFE method.
-    """
-    # Initialize RFE with the specified model and number of features
-    rfe = RFE(estimator = rfe_model, n_features_to_select = n_features)
+# # Select features using Recursive Feature Elimination (RFE) method
+# def rfe_selection(df, target, rfe_model, n_features, return_summary = False):
+#     """ Selects features using Recursive Feature Elimination (RFE) method.
+#         Parameters:
+#             df: DataFrame to apply the feature selection.
+#             target: Series or array-like target variable corresponding to df.
+#             rfe_model: Estimator object to use for RFE.
+#             n_features: Number of features to select.
+#             return_summary: If True, prints a summary of the selection process.
+#         Returns:
+#             DataFrame with selected features based on RFE method.
+#     """
+#     # Initialize RFE with the specified model and number of features
+#     rfe = RFE(estimator = rfe_model, n_features_to_select = n_features)
 
-    # Fit RFE on the training data
-    fitted_rfe = rfe.fit(df, target)
+#     # Fit RFE on the training data
+#     fitted_rfe = rfe.fit(df, target)
 
-    # Get selected feature names
-    cols_to_keep_4 = df.columns[fitted_rfe.support_].tolist()
+#     # Get selected feature names
+#     cols_to_keep_4 = df.columns[fitted_rfe.support_].tolist()
 
-    # Print summary if requested
+#     # Print summary if requested
+#     if return_summary:
+#         print(f"Total features kept: {len(cols_to_keep_4)}")
+#         print(f"Features selected by RFE method: {cols_to_keep_4}")
+#         print(f"Nº Features eliminated: {df.shape[1] - len(cols_to_keep_4)}")
+
+#     return cols_to_keep_4
+
+
+def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = False):
+
+    #nº of features
+    nof_list=np.arange(1,len(df_fit.columns)+1)            
+    low_score = math.inf
+    #Variable to store the optimum features
+    nof=0           
+    train_score_list =[]
+    val_score_list = []
+
+    for n in range(len(nof_list)):
+        model_instance = model(random_state=42)
+        
+        rfe = RFE(estimator = model_instance,n_features_to_select = nof_list[n])
+        X_train_rfe = rfe.fit_transform(df_fit,y_fit)
+        X_val_rfe = rfe.transform(df_to_apply)
+        model_instance.fit(X_train_rfe,y_fit)
+        
+        #storing results on training data
+        train_score = model_instance.score(X_train_rfe,y_fit)
+        train_score_list.append(train_score)
+        
+        #storing results on validation data
+        val_score = model_instance.score(X_val_rfe,y_apply)
+        val_score_list.append(val_score)
+
+        #calculating MAE
+        train_mae = mean_absolute_error(y_fit, model_instance.predict(X_train_rfe))
+        val_mae = mean_absolute_error(y_apply, model_instance.predict(X_val_rfe))
+        
+        #check best score
+        if val_mae < low_score:
+            low_score = val_mae
+            nof = nof_list[n]
+            features_to_select = pd.Series(rfe.support_, index = df_fit.columns)
+
+    cols_to_keep_4 = features_to_select[features_to_select==True].index.tolist()
+
     if return_summary:
-        print(f"Total features kept: {len(cols_to_keep_4)}")
-        print(f"Features selected by RFE method: {cols_to_keep_4}")
-        print(f"Nº Features eliminated: {df.shape[1] - len(cols_to_keep_4)}")
+        print("Total Features Kept: %d" %nof)
+        print(f"Features Selected by RFE Method: {cols_to_keep_4}")
+        print("Score with %d features: %f" % (nof, low_score))
+        print(f"Nº Features eliminated: {df_fit.shape[1] - len(cols_to_keep_4)}")
 
     return cols_to_keep_4
+
+
+
 
 
 
