@@ -15,7 +15,7 @@ def apply_randomized_search_cv(model, param_grid, iterations, scoring, refit, pr
         scoring=scoring,
         refit=refit,
         cv=pred_split,
-        verbose=1, # with verbose=1, we can see the progress of the search
+        verbose=3, # with verbose=3, we can see the progress of the search in more detail
         return_train_score=True, # return_train_score=True to get training scores as well and understand overfitting
         random_state=40111
     )
