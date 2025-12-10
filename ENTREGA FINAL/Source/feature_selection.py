@@ -184,12 +184,16 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
     val_mae_list = []
 
     for n in range(len(nof_list)):
-        model_instance = model(random_state=42)
+        model_instance = model()
         
         rfe = RFE(estimator = model_instance,n_features_to_select = nof_list[n])
         X_train_rfe = rfe.fit_transform(df_fit,y_fit)
         X_val_rfe = rfe.transform(df_to_apply)
         model_instance.fit(X_train_rfe,y_fit)
+        
+        #storing results on training data
+        train_mae = mean_absolute_error(y_fit, model_instance.predict(X_train_rfe))
+        train_mae_list.append(train_mae)
         
         #storing results on validation data
         val_mae = mean_absolute_error(y_apply, model_instance.predict(X_val_rfe))
@@ -210,7 +214,7 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
         print("Score with %d features: %f" % (nof, low_score))
         print(f"Nº Features eliminated: {df_fit.shape[1] - len(cols_to_keep_4)}")
 
-    return cols_to_keep_4
+    return cols_to_keep_4, train_mae_list, val_mae_list
 
 
 
