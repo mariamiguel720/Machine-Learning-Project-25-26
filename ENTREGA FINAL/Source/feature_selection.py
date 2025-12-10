@@ -149,7 +149,7 @@ def spearman_correlation_selection(df_fit, df_to_apply, target, threshold=0.3, r
         print(f"Features selected by Spearman method: {cols_to_keep_3}")
         print(f"Nº Features eliminated: {len(metric_cols) - len(cols_to_keep_3)}")
 
-    return df_to_apply
+    return cols_to_keep_3
 
 
 
@@ -210,7 +210,7 @@ def lasso_selection(df_fit, df_to_apply, target, threshold, return_summary=False
             DataFrame with selected features based on Lasso method.
     """
     # Fit Lasso model on the training data 
-    fitted_lasso = Lasso().fit(df_fit, target)
+    fitted_lasso = Lasso(max_iter = 15000,random_state=42).fit(df_fit, target)
 
     # Get selected feature names
     cols_to_keep_5 = df_fit.columns[np.abs(fitted_lasso.coef_) > threshold].tolist()
@@ -227,15 +227,16 @@ def lasso_selection(df_fit, df_to_apply, target, threshold, return_summary=False
 
 # --------------------------------------------- COMPARISON BETWEEN MODELS --------------------------------------- #
 
-def comparison_feature_selection(df, filter_cols, wrapped_cols, embedded_cols, n_agreed, return_summary=False):
+def comparison_feature_selection(df, filter_cols, wrapped_cols, embedded_cols, feature_importance_cols, n_agreed, return_summary=False):
     # Create comparison table for feature selection methods
     comparison_df = pd.DataFrame({'Feature': df.columns})
     comparison_df['Lasso'] = comparison_df['Feature'].isin(embedded_cols).astype(int)
     comparison_df['RFE'] = comparison_df['Feature'].isin(wrapped_cols).astype(int)
     comparison_df['Spearman'] = comparison_df['Feature'].isin(filter_cols).astype(int)
+    comparison_df['Feature Importance'] = comparison_df['Feature'].isin(feature_importance_cols).astype(int)
 
     # Add 'Sum' column to count how many methods selected each feature
-    comparison_df['Sum'] = comparison_df[['Lasso', 'RFE', 'Spearman']].sum(axis=1)
+    comparison_df['Sum'] = comparison_df[['Lasso', 'RFE', 'Spearman', 'Feature Importance']].sum(axis=1)
 
     # Select features agreed upon by all three methods
     final_features = comparison_df[comparison_df['Sum'] >= n_agreed]['Feature'].tolist()
@@ -246,5 +247,5 @@ def comparison_feature_selection(df, filter_cols, wrapped_cols, embedded_cols, n
         print(f"Total features selected by at least {n_agreed} methods: {len(final_features)}")
         print(f"Selected features: {final_features}")
 
-    return final_features
+    return final_features, comparison_df
 
