@@ -39,8 +39,8 @@ def evaluate_model(randomized_model):
     val_r2   = results['mean_test_r2']
 
     # Extract scores for MAE 
-    train_mae = -results['train_mae']
-    val_mae   = -results['test_mae']
+    train_mae = -results['mean_train_mae']
+    val_mae   = -results['mean_test_mae']
 
     # Extract parameters
     parameters = results['params']
@@ -57,12 +57,11 @@ def evaluate_model(randomized_model):
     # Best models based on refit metric (MAE)
     best_idx = randomized_model.best_index_
 
-    best_train_r2 = results['train_r2'][best_idx]
-    best_val_r2   = results['test_r2'][best_idx]
+    best_train_r2 = results['mean_train_r2'][best_idx]
+    best_val_r2   = results['mean_test_r2'][best_idx]
 
-    best_train_mae = -results['train_mae'][best_idx]
-    best_val_mae   = -results['test_mae'][best_idx]
-
+    best_train_mae = -results['mean_train_mae'][best_idx]
+    best_val_mae   = -results['mean_test_mae'][best_idx]
     best_params = results['params'][best_idx]
 
     print("\n=== BEST MODEL (based on MAE) ===")
