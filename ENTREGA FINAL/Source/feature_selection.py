@@ -50,7 +50,9 @@ def apply_variance_filter(df, threshold=0.0, return_summary=False):
     # Fit selector on training data
     selector = VarianceThreshold(threshold=threshold)
     selector.fit(df[metric_cols])
-
+    variances = selector.variances_
+    print(dict(zip(metric_cols, variances)))
+    
     # Get kept feature names
     cols_to_keep_1 = metric_cols[selector.get_support()]
 
@@ -227,7 +229,7 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
 # ------------------ LASSO ------------------ #
 
 # Select features using Lasso regression method
-def lasso_selection(df, target, threshold, return_summary=False):
+def lasso_selection(df, target, coef_threshold, return_summary=False):
     """ Selects features using Lasso regression method.
         Parameters:
             df: DataFrame to apply the feature selection.
@@ -239,9 +241,9 @@ def lasso_selection(df, target, threshold, return_summary=False):
     """
     # Fit Lasso model on the training data 
     fitted_lasso = Lasso(max_iter = 15000,random_state=42).fit(df, target)
-
+    print(fitted_lasso.coef_)
     # Get selected feature names
-    cols_to_keep_5 = df.columns[np.abs(fitted_lasso.coef_) > threshold].tolist()
+    cols_to_keep_5 = df.columns[np.abs(fitted_lasso.coef_) > coef_threshold].tolist()
 
     # Print summary if requested
     if return_summary:
