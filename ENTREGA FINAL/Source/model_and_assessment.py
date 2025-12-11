@@ -34,44 +34,43 @@ def evaluate_model(randomized_model):
         # Get results dictionary
     results = randomized_model.cv_results_
 
-    # --- Extract scores for R2 ---
-    mean_train_r2 = results['mean_train_r2']
-    mean_val_r2   = results['mean_test_r2']
+    # Extract scores for R2 
+    train_r2 = results['mean_train_r2']
+    val_r2   = results['mean_test_r2']
 
-    # --- Extract scores for MAE ---
-    # Atenção: ainda vêm como NEG-MAE, por isso aplicamos -
-    mean_train_mae = -results['mean_train_mae']
-    mean_val_mae   = -results['mean_test_mae']
+    # Extract scores for MAE 
+    train_mae = -results['train_mae']
+    val_mae   = -results['test_mae']
 
     # Extract parameters
     parameters = results['params']
 
     # Print each candidate with R2 + MAE + gap
-    for r2_t, r2_v, mae_t, mae_v, params in zip(mean_train_r2, mean_val_r2,
-                                                mean_train_mae, mean_val_mae, parameters):
+    for r2_t, r2_v, mae_t, mae_v, params in zip(train_r2, val_r2,
+                                                train_mae, val_mae, parameters):
         print(
             f"Train R2={r2_t:.3f} | Val R2={r2_v:.3f} | "
             f"Train MAE={mae_t:.1f} | Val MAE={mae_v:.1f} | "
-            f"Gap MAE={mae_t - mae_v:.3f} | Params={params}"
+            f"Gap MAE={(abs(mae_v - mae_t)) / mae_t:.3f} | Params={params}"
         )
 
-    # --- Best models based on refit metric (MAE) ---
+    # Best models based on refit metric (MAE)
     best_idx = randomized_model.best_index_
 
-    best_train_r2 = results['mean_train_r2'][best_idx]
-    best_val_r2   = results['mean_test_r2'][best_idx]
+    best_train_r2 = results['train_r2'][best_idx]
+    best_val_r2   = results['test_r2'][best_idx]
 
-    best_train_mae = -results['mean_train_mae'][best_idx]
-    best_val_mae   = -results['mean_test_mae'][best_idx]
+    best_train_mae = -results['train_mae'][best_idx]
+    best_val_mae   = -results['test_mae'][best_idx]
 
     best_params = results['params'][best_idx]
 
     print("\n=== BEST MODEL (based on MAE) ===")
     print("Best train R2:", best_train_r2)
     print("Best validation R2:", best_val_r2)
-    print("R2 Gap:", (best_train_r2 - best_val_r2) / best_train_r2 * 100, "%")
+    print("Gap R2:", (best_train_r2 - best_val_r2) / best_train_r2 * 100, "%")
     print("Best train MAE:", best_train_mae)
     print("Best validation MAE:", best_val_mae)
-    print("MAE Gap:", (best_val_mae - best_train_mae) / best_train_mae * 100, "%")
+    print("Gap MAE:", (best_val_mae - best_train_mae) / best_train_mae * 100, "%")
     print("Best parameters:", best_params)
 
