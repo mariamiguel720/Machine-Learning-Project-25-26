@@ -22,7 +22,7 @@ def apply_randomized_search_cv(model, param_grid, iterations, scoring, refit, pr
 
     # Fit the model
     randomized_model.fit(X_fit, y_fit)
-
+    
     return randomized_model
 
 
