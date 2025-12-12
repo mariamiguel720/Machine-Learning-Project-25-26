@@ -1,4 +1,5 @@
 # ---------------------LIBRARIES --------------------- #
+from turtle import pd
 from sklearn.model_selection import RandomizedSearchCV
 
 
@@ -73,3 +74,35 @@ def evaluate_model(randomized_model):
     print("Gap MAE:", (best_val_mae - best_train_mae) / best_train_mae * 100, "%")
     print("Best parameters:", best_params)
 
+
+# --------------------------------------- GET RESULTS DATAFRAME -------------------------------------- #
+# Function to get results dataframe from multiple models
+def get_results_dataframe(models):
+
+    results_df = pd.DataFrame()
+
+    for model in models:
+        # Get results dictionary
+        results = model.cv_results_
+
+        # Extract scores for MAE 
+        train_mae = -results['mean_train_mae']
+        val_mae   = -results['mean_test_mae']
+        test_mae  = -results['mean_test_mae'] 
+
+        # Time to fit
+        time_fit = results['mean_fit_time']
+
+        # Create a DataFrame for the results of the current model
+        model_results_df = pd.DataFrame({
+            'Model': [type(model.estimator).__name__] * len(train_mae),
+            'Time to Fit (s)': time_fit,
+            'Train MAE': train_mae,
+            'Validation MAE': val_mae,
+            'Test MAE': test_mae
+        })
+
+        # Append to the overall results DataFrame
+        results_df = pd.concat([results_df, model_results_df], ignore_index=True)
+
+    return results_df
