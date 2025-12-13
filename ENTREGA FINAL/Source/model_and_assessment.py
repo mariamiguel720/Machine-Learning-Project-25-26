@@ -1,4 +1,6 @@
 # ---------------------LIBRARIES --------------------- #
+from modulefinder import test
+import os
 from sklearn.model_selection import RandomizedSearchCV
 
 
@@ -105,3 +107,30 @@ def get_results_dataframe(models):
         results_df = pd.concat([results_df, model_results_df], ignore_index=True)
 
     return results_df
+
+
+# --------------------------------------- SAVE BEST RESULT -------------------------------------- #
+# Function to save the best model's predictions on the test set
+def save_best_result(results_df, test):
+
+    # Find the best model based on Validation MAE
+    best_model= results_df.loc[results_df['Validation MAE'].idxmin()]
+
+    best_model_estimator = best_model.best_estimator_
+    predicts = best_model_estimator.predict(test.values)
+
+    # Go one level up from the notebooks folder to reach the repo root
+    selected_dir = "../results/kaggle_submissions/"
+    os.makedirs(selected_dir, exist_ok=True)
+
+    # Extract carID
+    car_ids = test.index.values
+
+    # Create DataFrame with best model predictions
+    best_model_df = pd.DataFrame({
+        'carID': car_ids,
+        'price': predicts
+    })
+
+    # Save predictions to CSV
+    best_model_df.to_csv(f"{selected_dir}/predictions_{best_model['Model']}.csv", index=False)
