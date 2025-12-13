@@ -2,13 +2,29 @@
 from modulefinder import test
 import os
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.metrics import mean_absolute_error
+import pandas as pd
+import copy
 
 
 # --------------------------------------- APPLY RANDOMIZED SEARCH CV -------------------------------------- #
 
 # Function to apply RandomizedSearchCV
 def apply_randomized_search_cv(model, param_grid, iterations, scoring, refit, pred_split, X_fit, y_fit):
-
+    """ Apply RandomizedSearchCV to a given model with specified parameters.
+    Parameters:
+        model: ML model to be optimized
+        param_grid: Dictionary with parameters to search
+        iterations: Number of parameter settings that are sampled
+        scoring: Scoring metrics to evaluate
+        refit: Metric to refit the model
+        pred_split: Cross-validation splitting strategy
+        X_fit: Features for fitting
+        y_fit: Target for fitting
+    Returns:
+        Fitted RandomizedSearchCV model
+    """
+    
     # Create RandomizedSearchCV
     randomized_model = RandomizedSearchCV(
         estimator=model,
@@ -28,12 +44,19 @@ def apply_randomized_search_cv(model, param_grid, iterations, scoring, refit, pr
     return randomized_model
 
 
-
-# --------------------------------------- EVALUATE MODEL -------------------------------------- #
+# --------------------------------------- EVALUATE MODEL WITH RANDOMIZED SEARCH -------------------------------------- #
 
 # Function to evaluate the model
 def evaluate_model(randomized_model):
-        # Get results dictionary
+    """ Evaluate the model fitted with RandomizedSearchCV and print results.
+    Parameters:
+        randomized_model: Fitted RandomizedSearchCV model
+    Prints:
+        Train and Validation R2 and MAE for each candidate
+        Best model based on refit metric (MAE)
+    """
+
+    # Get results dictionary
     results = randomized_model.cv_results_
 
     # Extract scores for R2 
@@ -83,8 +106,11 @@ def get_results_dataframe(models):
     results_df = pd.DataFrame()
 
     for model in models:
+        # Choose the best score index based on refit metric (MAE)
+        best_model = model.best_index_
+
         # Get results dictionary
-        results = model.cv_results_
+        results = best_model.cv_results_
 
         # Extract scores for MAE 
         train_mae = -results['mean_train_mae']
@@ -134,3 +160,73 @@ def save_best_result(results_df, test):
 
     # Save predictions to CSV
     best_model_df.to_csv(f"{selected_dir}/predictions_{best_model['Model']}.csv", index=False)
+
+
+
+# --------------------------------------- COMPARE FEATURE SETS -------------------------------------- #
+
+# Function to fit and evaluate model
+def fit_evaluate(X_train, y_train, X_val, y_val, model):
+    """ Fit model and evaluate performance on training and validation sets. 
+    Paramters:
+        X_train: Training features
+        y_train: Training target
+        X_val: Validation features
+        y_val: Validation target
+        model: ML model to fit and evaluate
+    Returns:
+        Dictionary with Train MAE, Val MAE, Gap MAE (%), Train R2, Val R2
+    """
+    # Fit the model
+    model.fit(X_train, y_train)
+    # Make predictions
+    train_preds = model.predict(X_train)
+    val_preds   = model.predict(X_val)
+    # Calculate metrics
+    train_mae = mean_absolute_error(y_train, train_preds)
+    val_mae   = mean_absolute_error(y_val, val_preds)
+    gap_mae   = abs(val_mae - train_mae) / train_mae * 100
+    train_r2  = model.score(X_train, y_train)
+    val_r2    = model.score(X_val, y_val)
+
+    return {
+        "Train_MAE": train_mae,
+        "Val_MAE": val_mae,
+        "Gap_MAE_%": gap_mae,
+        "Train_R2": train_r2,
+        "Val_R2": val_r2
+    }
+
+# Function to compare feature sets
+def compare_feature_sets(fs_dict, model, X_train, y_train, X_val, y_val):
+    """ Compare different feature sets using a given model and training/validation data.
+    Parameters:
+        fs_dict: Dictionary where keys are feature set names and values are lists of features
+        model: ML model to fit and evaluate
+        X_train: Training features
+        y_train: Training target
+        X_val: Validation features
+        y_val: Validation target
+    Returns:
+        DataFrame with evaluation metrics for each feature set
+    """
+
+    # Store results
+    results = []
+    # Iterate over feature sets
+    for key, values in fs_dict.items():
+        # Subset training and validation data to current feature set
+        X_train_fs = X_train[values]
+        X_val_fs   = X_val[values]
+        # Fit and evaluate model using current feature set and the function defined above
+        metrics = fit_evaluate(
+            X_train_fs, y_train, X_val_fs, y_val, copy.deepcopy(model) # copy to assure a fresh model each time
+        )
+        # Append number of features and metrics to results
+        results.append({
+            "Num_Features": len(values),
+            **metrics
+        })
+
+    return pd.DataFrame(results, index = [key for key in fs_dict.keys()]).sort_values("Val_MAE")
+
