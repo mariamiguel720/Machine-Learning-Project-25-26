@@ -30,12 +30,11 @@ def apply_randomized_search_cv(model, param_grid, iterations, scoring, refit, pr
         estimator=model,
         param_distributions=param_grid,
         n_iter=iterations,
-        scoring=scoring,
+        scoring=scoring, 
         refit=refit,
         cv=pred_split,
-        verbose=3, # with verbose=3, we can see the progress of the search in more detail
         return_train_score=True, # return_train_score=True to get training scores as well and understand overfitting
-        random_state=40111
+        random_state=42
     )
 
     # Fit the model
@@ -52,8 +51,8 @@ def evaluate_model(randomized_model):
     Parameters:
         randomized_model: Fitted RandomizedSearchCV model
     Returns:
-        DataFrame with Train and Validation R2 and MAE for each candidate,
-        Gaps, and Best model based on refit metric (MAE)
+        DataFrame with Train and Validation R2 and MAE for each candidate, Gaps, and Best model based 
+        on refit metric (MAE)
         Best parameters of the best model
     """
     # Get results dictionary
@@ -136,7 +135,6 @@ def final_models_comparison(models):
     df = pd.DataFrame(rows).round(3)
 
     return df
-
 
 
 # --------------------------------------- SAVE BEST RESULT -------------------------------------- #

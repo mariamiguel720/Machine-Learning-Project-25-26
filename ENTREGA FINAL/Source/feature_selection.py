@@ -43,6 +43,8 @@ def apply_variance_filter(df, threshold=0.0, return_summary=False):
         Returns:
             cols_to_keep_1: List of feature names kept after applying variance threshold.
     """
+    # Create a copy of the dataframe to avoid modifying the original
+    df = df.copy()
 
     # Select numerical columns
     metric_cols = df.select_dtypes(include='number').columns
@@ -77,6 +79,9 @@ def remove_highly_correlated_features(df, threshold = 0.9, return_summary=False)
         Returns:
             cols_to_keep_2: List of feature names kept after removing highly correlated features.
     """
+
+    # Create a copy of the dataframe to avoid modifying the original
+    df = df.copy()
 
     # Select only numerical columns
     num_cols = df.select_dtypes(include='number').columns
@@ -117,6 +122,8 @@ def spearman_correlation_selection(df, target, threshold=0.3, return_summary=Fal
             cols_to_keep_3: List of feature names kept after applying Spearman correlation selection.
     """
 
+    # Create a copy of the dataframe to avoid modifying the original
+    df = df.copy()
     # Select numerical columns
     metric_cols = df.select_dtypes(include='number').columns.tolist()
 
@@ -144,6 +151,22 @@ def spearman_correlation_selection(df, target, threshold=0.3, return_summary=Fal
 # ------------------------------------------------------ WRAPPED METHODS -------------------------------------------- #
 
 def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = False):
+    """ Selects features using Recursive Feature Elimination (RFE) method.
+        Parameters:
+            df_fit: DataFrame to fit the RFE model.
+            df_to_apply: DataFrame to apply the RFE model.
+            y_fit: Series or array like target variable corresponding to df_fit.
+            y_apply: Series or array like target variable corresponding to df_to_apply.
+            model: Machine learning model to use for RFE (e.g., LinearRegression, DecisionTreeRegressor).
+            return_summary: If True, prints a summary of the selection process.
+        Returns:
+            cols_to_keep_4: List of feature names kept after applying RFE method.
+            train_mae_list: List of training MAE scores for each number of features.
+            val_mae_list: List of validation MAE scores for each number of features.
+    """
+
+    # Create a copy of the dataframe to avoid modifying the original
+    df_to_apply = df_to_apply.copy()
 
     #number of features
     nof_list=np.arange(1,len(df_fit.columns)+1)            
@@ -153,13 +176,14 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
     train_mae_list =[]
     val_mae_list = []
 
+    # Perform RFE for each number of features
     for n in range(len(nof_list)):
-        model_instance = model()
-        
+        model_instance = model() # create a new instance of the model
+        # RFE model
         rfe = RFE(estimator = model_instance,n_features_to_select = nof_list[n])
-        X_train_rfe = rfe.fit_transform(df_fit,y_fit)
-        X_val_rfe = rfe.transform(df_to_apply)
-        model_instance.fit(X_train_rfe,y_fit)
+        X_train_rfe = rfe.fit_transform(df_fit,y_fit) # fit and transform training data
+        X_val_rfe = rfe.transform(df_to_apply) # transform validation data
+        model_instance.fit(X_train_rfe,y_fit) # fit model
         
         #storing results on training data
         train_mae = mean_absolute_error(y_fit, model_instance.predict(X_train_rfe))
@@ -169,15 +193,15 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
         val_mae = mean_absolute_error(y_apply, model_instance.predict(X_val_rfe))
         val_mae_list.append(val_mae)
 
-        
         #check best score
         if val_mae < low_score:
             low_score = val_mae
             nof = nof_list[n]
             features_to_select = pd.Series(rfe.support_, index = df_fit.columns)
-
+    # list of selected features
     cols_to_keep_4 = features_to_select[features_to_select==True].index.tolist()
 
+    # Print summary if requested
     if return_summary:
         print("Total Features Kept: %d" %nof)
         print(f"Features Selected by RFE Method: {cols_to_keep_4}")
@@ -185,11 +209,6 @@ def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = F
         print(f"Nº Features eliminated: {df_fit.shape[1] - len(cols_to_keep_4)}")
 
     return cols_to_keep_4, train_mae_list, val_mae_list
-
-
-
-
-
 
 
 # ------------------------------------------------------ EMBEDDED METHODS -------------------------------------------- #
@@ -202,10 +221,10 @@ def lasso_selection(df, target, coef_threshold, return_summary=False):
         Parameters:
             df: DataFrame to apply the feature selection.
             target: Series or array-like target variable corresponding to df.
-            threshold: Coefficient threshold below which features will be removed.
+            coef_threshold: Coefficient threshold below which features will be removed.
             return_summary: If True, prints a summary of the selection process.
         Returns:
-            DataFrame with selected features based on Lasso method.
+            List with selected features based on Lasso method.
     """
     # Fit Lasso model on the training data 
     fitted_lasso = Lasso(max_iter = 15000,random_state=42).fit(df, target)
@@ -225,6 +244,7 @@ def lasso_selection(df, target, coef_threshold, return_summary=False):
 
 # --------------------------------------------- COMPARISON BETWEEN MODELS --------------------------------------- #
 
+# Compare features selected by different methods and select those agreed upon by at least n methods
 def comparison_feature_selection(df, filter_cols, wrapped_cols, embedded_cols, feature_importance_cols, n_agreed, return_summary=False):
     # Create comparison table for feature selection methods
     comparison_df = pd.DataFrame({'Feature': df.columns})

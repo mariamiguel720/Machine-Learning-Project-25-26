@@ -13,7 +13,7 @@ def create_features(df_fit, df_to_apply, current_year = 2020, threshold=3):
     Returns:
         pd.DataFrame: DataFrame with new features added.
     """
-
+    # Make a copy to avoid modifying the original dataframe
     df_to_apply = df_to_apply.copy()
 
     #---------------------- without using mean, median or mode ------------------------------------
