@@ -19,6 +19,7 @@ def create_boxplots(df, n_cols=2, figsize=(20, 8)):
     Returns:
         Displays boxplots for each numeric column in the dataset.
     """
+
     metric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
     n_features = len(metric_cols) # Total number of numeric features
     n_rows = ceil(n_features / n_cols) # Calculate number of rows needed using ceiling to round up
@@ -47,7 +48,7 @@ def create_boxplots(df, n_cols=2, figsize=(20, 8)):
     # Remove unused axes
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
-
+ 
     plt.suptitle("Boxplots of Numeric Features", fontsize=18, fontweight="bold") # Overall title
     plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust layout to make room for suptitle
     plt.show()
@@ -58,11 +59,10 @@ def create_boxplots(df, n_cols=2, figsize=(20, 8)):
 def create_heatmap(df, method, figsize=(10, 8)):
     """
     Creates a heatmap for the correlation matrix of numeric columns.
-    
     Parameters:
         df (DataFrame): The dataset
         method (str): Correlation method to use (e.g., "pearson", "spearman", "kendall").
-        numeric_cols (list): List of numeric columns to include in the correlation matrix.
+        figsize (tuple): Figure size for the heatmap.
     Returns:
         Displays a heatmap of the correlation matrix.
     """
@@ -93,15 +93,20 @@ def create_heatmap(df, method, figsize=(10, 8)):
 # ----------------- OUTLIERS SUMMARY ----------------- #
 
 # Function to generate a summary table of outliers for each numeric column
-def outlier_summary(df_to_apply):
-    """Generates a summary table of outliers for each numeric column using IQR method."""
+def outlier_summary(df):
+    """Generates a summary table of outliers for each numeric column using IQR method.
+    Parameters:
+        df (DataFrame): The dataset
+    Returns:
+        DataFrame summarizing total and percentage of outliers for each numeric column.
+    """
 
     summary = [] # List to hold summary data
-    metric_cols = df_to_apply.select_dtypes(include=['number']).columns # Select numeric columns
+    metric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
     
     for col in metric_cols:  # Iterate over each numeric column
-        Q1 = df_to_apply[col].quantile(0.25)
-        Q3 = df_to_apply[col].quantile(0.75)
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
         IQR = Q3 - Q1
 
         # Calculate bounds for outliers
@@ -109,11 +114,12 @@ def outlier_summary(df_to_apply):
         upper_bound = Q3 + 1.5 * IQR
 
         # Boolean mask for outliers
-        outliers = (df_to_apply[col] < lower_bound) | (df_to_apply[col] > upper_bound)
+        outliers = (df[col] < lower_bound) | (df[col] > upper_bound)
 
         total_outliers = outliers.sum()
-        pct_outliers = 100 * total_outliers / len(df_to_apply)
-
+        pct_outliers = 100 * total_outliers / len(df)
+        
+        # Append results to summary list
         summary.append({
             "Column": col,
             "Total Outliers": total_outliers,
@@ -126,8 +132,12 @@ def outlier_summary(df_to_apply):
 
 # Function to calculate the percentage of missing values in each column and return a DataFrame
 def missing_values_table(df):
-    " This function shows the number and percentage of missing values in each column of the dataframe 'data'."
-    
+    """ This function shows the number and percentage of missing values in each column of the dataframe 'data'.
+    Parameters:
+        df (DataFrame): The dataset
+    Returns:
+        DataFrame with features and their corresponding percentage of missing values, sorted in descending order.
+    """
     # Number of rows in the dataset
     rows_number = df.shape[0]
     # Number of missing values per column
@@ -139,5 +149,6 @@ def missing_values_table(df):
     # Show in DataFrame format, sorted from highest to lowest
     missing_df = missing_percentage.sort_values(ascending=False).reset_index()
     missing_df.columns = ['Feature', 'Missing_Percent']
+
     return missing_df
 
