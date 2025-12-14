@@ -143,38 +143,6 @@ def spearman_correlation_selection(df, target, threshold=0.3, return_summary=Fal
 
 # ------------------------------------------------------ WRAPPED METHODS -------------------------------------------- #
 
-# ------------------ RFE - Recursive Feature Elimination ------------------ #
-
-# # Select features using Recursive Feature Elimination (RFE) method
-# def rfe_selection(df, target, rfe_model, n_features, return_summary = False):
-#     """ Selects features using Recursive Feature Elimination (RFE) method.
-#         Parameters:
-#             df: DataFrame to apply the feature selection.
-#             target: Series or array-like target variable corresponding to df.
-#             rfe_model: Estimator object to use for RFE.
-#             n_features: Number of features to select.
-#             return_summary: If True, prints a summary of the selection process.
-#         Returns:
-#             DataFrame with selected features based on RFE method.
-#     """
-#     # Initialize RFE with the specified model and number of features
-#     rfe = RFE(estimator = rfe_model, n_features_to_select = n_features)
-
-#     # Fit RFE on the training data
-#     fitted_rfe = rfe.fit(df, target)
-
-#     # Get selected feature names
-#     cols_to_keep_4 = df.columns[fitted_rfe.support_].tolist()
-
-#     # Print summary if requested
-#     if return_summary:
-#         print(f"Total features kept: {len(cols_to_keep_4)}")
-#         print(f"Features selected by RFE method: {cols_to_keep_4}")
-#         print(f"Nº Features eliminated: {df.shape[1] - len(cols_to_keep_4)}")
-
-#     return cols_to_keep_4
-
-
 def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = False):
 
     #number of features

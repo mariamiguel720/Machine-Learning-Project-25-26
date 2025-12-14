@@ -1,4 +1,4 @@
-# ------------------------------------------------------ LIBRARIES -------------------------------------------- #
+# # ------------------------------------------------------ LIBRARIES -------------------------------------------- #
 from difflib import SequenceMatcher
 import pandas as pd
 import numpy as np
@@ -9,7 +9,7 @@ from math import ceil
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, TargetEncoder, OneHotEncoder, OrdinalEncoder
 
-
+    
 # --------------------------------------------------- CORRECT VALUES -------------------------------------------- #
 
 # ----------------- INVALID VALUES ----------------- #
@@ -24,8 +24,10 @@ def correct_metric_features(df):
         df: Corrected DataFrame
     """
 
+    # Create a copy of the DataFrame to avoid modifying the original
     df = df.copy()
 
+    # Select numeric columns
     numeric_cols = df.select_dtypes(include=['number']).columns # Select numeric columns
 
     # Replace negative values with NaN
@@ -52,20 +54,26 @@ def replace_category_transmission(df):
     Returns:
         df: Corrected DataFrame
     """
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df = df.copy()
 
     # Replace 'Other' with 'unknown' in 'transmission' column
     df['transmission'] = df['transmission'].replace('Other', 'unknown')
 
-    return df
+    return df 
 
 
 # --------------------------------------------------- CATEGORICAL CORRECTIONS ----------------------------------- #
 
 # Function to calculate similarity between two strings
 def similar(a, b):
-    """Calculates similarity ratio between two strings using SequenceMatcher."""
+    """Calculates similarity ratio between two strings using SequenceMatcher.
+    Parameters:
+        a: First string
+        b: Second string
+    Returns:
+        Similarity ratio (float)
+    """
     return SequenceMatcher(None, a, b).ratio()
 
 
@@ -81,7 +89,7 @@ def clean_with_diff(df, column, threshold_short, threshold_long):
     Returns:
         df: DataFrame with cleaned column
     """
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df = df.copy()
 
     # Get unique values in the column
@@ -124,6 +132,7 @@ def clean_with_diff(df, column, threshold_short, threshold_long):
         for item in group:
             mapping[item] = moda
     
+    # Apply the mapping to the column
     df[column] = df[column].map(mapping).fillna(df[column])
     
     return df
@@ -138,10 +147,11 @@ def treat_outliers_custom(df_fit, df_to_apply, threshold=2.2):
     Parameters:
         df_fit (pd.DataFrame): The dataframe to fit the outlier treatment rules.
         df_to_apply (pd.DataFrame): The dataframe to apply the outlier treatment.
+        threshold (float): The multiplier for the IQR to define outlier limits.
     Returns:
         df_to_apply (pd.DataFrame): The dataframe with treated outliers.
     """
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df_to_apply = df_to_apply.copy()
 
     # Fixed limits
@@ -169,22 +179,24 @@ def treat_outliers_custom(df_fit, df_to_apply, threshold=2.2):
 def encoding_features(X_fit, Y_fit, df_to_apply):
     """     Encode categorical features using Target, One-Hot and Ordinal Encoding. 
     Parameters:
-        df_fit: DataFrame to fit the encoders (training set)
+        X_fit: DataFrame to fit the encoders (training set)
+        Y_fit: Series or DataFrame with target variable for target encoding
         df_to_apply: DataFrame to apply the fitted encoders (training/validation/test set)
     Returns:
         df_to_apply: DataFrame with encoded categorical features
     """
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df_to_apply = df_to_apply.copy()
 
+    # Define categorical columns for each encoding method
     target_cols = ['Brand', 'model']
     one_hot_cols = ['transmission', 'fuelType']
     ordinal_cols = ['mileage_category']
 
+    # Identify numeric features
     numeric_features = X_fit.columns.drop(target_cols + one_hot_cols + ordinal_cols)
 
-# -----------  TARGET ENCODING ----------- #
-
+    # -----------  TARGET ENCODING ----------- #
     Y_fit_continuous = Y_fit.astype(float) # Ensure Y_fit is continuous
     # Call Target Encoder and fit to train data
     # CV is only going to be aplied during training fitting phase
@@ -200,7 +212,7 @@ def encoding_features(X_fit, Y_fit, df_to_apply):
         index=df_to_apply.index
     )
 
-# -----------  ONE-HOT ENCODING ----------- #
+    # -----------  ONE-HOT ENCODING ----------- #
     ohe = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore') #sparse_output=False outputs a numpy array, not a sparse matrix
     onehot_fit = ohe.fit(X_fit[one_hot_cols])
     onehot_transformed = onehot_fit.transform(df_to_apply[one_hot_cols])
@@ -211,7 +223,7 @@ def encoding_features(X_fit, Y_fit, df_to_apply):
     df_ohe = pd.DataFrame(onehot_transformed, index=df_to_apply.index, columns=one_hot_feat_names)
     
 
-# -----------  ORDINAL ENCODING ----------- #
+    # -----------  ORDINAL ENCODING ----------- #
     categories = [['Very Low', 'Low', 'Medium', 'High', 'Very High']]
     enc = OrdinalEncoder(
         categories=categories,
@@ -245,10 +257,12 @@ def scaling_features(df_fit, df_to_apply, method):
     Returns:
         df_to_apply (np.ndarray): The scaled dataframe to which the scaler is applied.
     """
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df_to_apply = df_to_apply.copy()
 
+    # Identify one-hot encoded columns and metric columns
     one_hot_cols = [col for col in df_fit.columns if col.endswith('_ohe')]
+
     metric_cols = [
         col for col in df_fit.columns
         if col not in one_hot_cols and pd.api.types.is_numeric_dtype(df_fit[col])
@@ -288,11 +302,12 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
     Parameters:
         df_fit: DataFrame to fit the imputation models (training set)
         df_to_apply: DataFrame to apply the imputation (training/validation/test set)
+        method: imputation method for metric columns ("simple" for median, "knn" for KNN)
         neighbors: number of neighbors for KNN imputation
     Returns:
         df_to_apply: DataFrame with imputed missing values
     """
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df_to_apply = df_to_apply.copy()
 
     # Define categorical and numerical columns
@@ -320,42 +335,9 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
     else :
         raise ValueError("Invalid method. Choose 'simple' or 'knn'.")
     # Fit and transform the metric columns
+
+    # Fit and transform the metric columns
     imp_num.fit(df_fit[metric_cols])
     df_to_apply[metric_cols] = imp_num.transform(df_to_apply[metric_cols])
 
     return df_to_apply
-
-# --------------------------------------------- DATA PREPARATION COMPILATION ----------------------------------------- #
-
-# def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method):
-# # def data_preparation(df_fit, df_to_apply, col_thresholds, ordinal_cols, one_hot_cols, metric_cols, scaling_method, neighbors=5):
-
-#     """
-#     Compiles data preparation steps: outliers treatment, encoding, scaling, and missing values imputation.
-#     Parameters:
-#     df_fit: DataFrame to fit the transformations (training set)
-#     df_to_apply: DataFrame to apply the transformations (training/validation/test set)
-#     col_thresholds: Dictionary with outlier treatment rules per column
-#     ordinal_cols: List of columns to use Ordinal Encoding
-#     one_hot_cols: List of columns to use One-Hot Encoding
-#     metric_cols: List of numeric columns to scale
-#     scaling_method: Method to use for scaling (e.g., 'standard', 'minmax')
-#     """
-
-#     # Criar função de correção dados manuais
-#     #df_to_apply = correct_values(parametros)
-
-#     # Outliers Treatment
-#     df_to_apply = treat_outliers_custom(df_to_apply, col_thresholds)
-
-#     # Encoding
-#     df_to_apply = encoding_features(df_fit, df_to_apply, ordinal_cols, one_hot_cols)
-
-#     # Scaling
-#     scaled_metrics = scaling_features(df_fit, df_to_apply, metric_cols, scaling_method)
-
-#     # Missing Values Imputation
-#     df_to_apply = simple_imputation(df_fit, df_to_apply)
-#     #df_to_apply = knn_imputation(df_fit, df_to_apply, neighbors=5)
-
-#     return df_to_apply
