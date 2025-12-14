@@ -188,7 +188,7 @@ def encoding_features(X_fit, Y_fit, df_to_apply):
     Y_fit_continuous = Y_fit.astype(float) # Ensure Y_fit is continuous
     # Call Target Encoder and fit to train data
     # CV is only going to be aplied during training fitting phase
-    target_enc = TargetEncoder(cv=5, smooth='auto', random_state=40111, target_type='continuous').fit(X_fit[target_cols], Y_fit_continuous)        
+    target_enc = TargetEncoder(cv=5, smooth='auto', random_state=42, target_type='continuous').fit(X_fit[target_cols], Y_fit_continuous)        
 
     # Transform the data from df_to_apply by applying the encoding obtained in the previous command
     data_encoded = target_enc.transform(df_to_apply[target_cols])

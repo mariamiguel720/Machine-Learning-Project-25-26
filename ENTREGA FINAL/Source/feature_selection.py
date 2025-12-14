@@ -177,7 +177,7 @@ def spearman_correlation_selection(df, target, threshold=0.3, return_summary=Fal
 
 def rfe_selection(df_fit, df_to_apply, y_fit, y_apply, model, return_summary = False):
 
-    #nº of features
+    #number of features
     nof_list=np.arange(1,len(df_fit.columns)+1)            
     low_score = math.inf
     #Variable to store the optimum features
