@@ -282,7 +282,7 @@ def scaling_features(df_fit, df_to_apply, method):
         standard = StandardScaler().fit(df_fit[metric_cols])
         # Transform the the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = standard.transform(df_to_apply[metric_cols])
-    else: 
+    elif method == 'robust': 
         robust = RobustScaler().fit(df_fit[metric_cols])
         # Transform the the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = robust.transform(df_to_apply[metric_cols])
@@ -341,3 +341,52 @@ def impute_missing(df_fit, df_to_apply, method="simple", neighbors=5):
     df_to_apply[metric_cols] = imp_num.transform(df_to_apply[metric_cols])
 
     return df_to_apply
+
+# --------------------------------------------- DATA PREPROCESSING ----------------------------------------- #
+
+def data_preprocessing(df_fit, target_fit, df_to_apply, neighbors=5, imputation_method="knn", scaling_method="standard"):
+    """ Preprocess the data by treating outliers, imputing missing values, encoding categorical features, and scaling numeric features.
+    Parameters:
+        df_fit: Training feature set
+        target_fit: Training target variable
+        df_to_apply: Validation feature set
+        treat_outliers: Boolean indicating whether to treat outliers
+        neighbors: Number of neighbors for KNN imputation
+        imputation_method: Method for imputing missing values ("simple" or "knn")
+        scaling_method: Method for scaling features ("minmax", "minmax2", "standard", "robust")
+    Returns:
+        X_apply: Preprocessed dataframe
+    """
+
+    X_fit = df_fit.copy()
+    X_apply = df_to_apply.copy()
+    y_fit = target_fit.copy()
+
+
+    # If missing values imputation is simple, scaling and encoding comes after imputation
+    # If missing values imputation is KNN, scaling and encoding comes before imputation
+    # Impute missing values
+    if imputation_method == "simple":
+        X_apply = impute_missing(X_fit, X_apply, method="simple")
+        X_fit = impute_missing(X_fit, X_fit, method="simple")
+
+        X_apply = encoding_features(X_fit, y_fit, X_apply)
+        X_fit = encoding_features(X_fit, y_fit, X_fit)
+
+        X_apply = scaling_features(X_fit, X_apply, method=scaling_method)
+        X_fit = scaling_features(X_fit, X_fit, method=scaling_method)
+
+    elif imputation_method == "knn":
+        X_apply = encoding_features(X_fit, y_fit, X_apply)
+        X_fit = encoding_features(X_fit, y_fit, X_fit)
+
+        X_apply = scaling_features(X_fit, X_apply, method=scaling_method)
+        X_fit = scaling_features(X_fit, X_fit, method=scaling_method)
+
+        X_apply = impute_missing(X_fit, X_apply, method="knn", neighbors=neighbors)
+        X_fit = impute_missing(X_fit, X_fit, method="knn", neighbors=neighbors)
+    
+    else:
+        raise ValueError("Invalid imputation method. Choose 'simple' or 'knn'.")
+    
+    return X_apply
