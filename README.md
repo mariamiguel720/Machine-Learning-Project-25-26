@@ -1,35 +1,33 @@
-# Machine-Learning-Project-25-26
+# **Cars 4 You: Expediting Car Evaluations with ML**
 
-Trabalhar com o GitHub
+**Nova IMS** | Fall 2025/2026    
+**Course:** Machine Learning
 
-**PASSO 1:** 
-Antes de começares a trabalhar vê em que branch estás: 
- - git branch
+## **Group 40**  
+- **Ana Macedo** | 20240405  
+- **Catarina Mendinhas** | 20250422  
+- **Lourenço Silva** | 20250453  
+- **Maria Fonseca** | 20250380
 
- 
-Se já estiveres no teu branch, avança para o passo 2. 
-Se não estiveres, muda para o teu branch com: 
- - git checkout nome-do-teu-branch
- 
- 
-**PASSO 2:**
- - git pull origin nome-branch-comum 
- 
-Agora estás pronto para trabalhar à vontade
- 
- 
-**PASSO 3:** 
-Quando acabares o trabalho 
- - salvar o trabalho no próprio PC (control+S)
- - git add . 
- - git commit -m "mensagem explicativa do commit" 
- - git push origin nome-do-teu-branch
- 
- 
-**PASSO 4:**
-Atualizar o branch comum 
+### Objective
+Build a robust car-price prediction model that can replicate and accelerate Cars 4 You’s current mechanic-based valuation process. The model should estimate a fair purchase price from the details a seller provides online, reducing the need for manual inspections, shortening waiting lists, and enabling faster, scalable decision-making while maintaining consistent valuation quality.
 
- - git checkout nome-branch-comum  
- - git pull origin nome-branch-comum  
- - git merge nome-do-teu-branch
- - git push origin nome-branch-comum
+### Data Used
+Cars 4 You database from 2020.
+
+## Folders Overview
+There are four folders, each containing the project guidelines, the data files and first and final deliveries of the project.
+
+The **Final Delivery** folder is divided into 3 subfolders: 
+- *Source* containing the .py files with the functions used throughout the notebooks,
+- *Notebooks* with 3 jupyter notebooks,
+- *Results* containing the models' results for submission in the Kaggle competition.
+
+Focusing on the Final Delivery Notebooks, we have the following:
+- **01_EDA**: In-depth exploratory data analysis was performed, examined statistical summaries and visual representations for each feature, both individually and between features.
+
+- **02_Preprocessing_Feature Selection_Modelling**: It encompasses comprehensive data cleaning and preprocessing, feature selection through a voting-based approach, and the development and evaluation of multiple modeling algorithms, culminating in a comparative analysis to identify the most effective solution. It was assessed how varying the strictness of feature selection using feature subsets defined by the level of agreement across multiple selection methods impacts the performance of previously identified top-performing models.
+
+- **Open_Ended_Data_Preprocessing**: This section compares the performance of several tuned regression models under different preprocessing strategies and brand-based data segmentations, using a fixed feature set for consistency. Model performance is evaluated with R² and MAE to assess the impact of preprocessing choices and global versus brand-specific modeling on predictive accuracy and generalization.
+
+
