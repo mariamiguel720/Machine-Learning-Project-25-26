@@ -236,3 +236,30 @@ def compare_feature_sets(fs_dict, model, X_train, y_train, X_val, y_val):
 
     return pd.DataFrame(results, index = [key for key in fs_dict.keys()]).sort_values("Val_MAE")
 
+# Function to compare data preprocessing methods in model results
+def compare_model_dp(dp_dict, model):
+    """ Compare different feature sets using a given model and training/validation data.
+    Parameters:
+        dp_dict: Dictionary where keys are feature set names and values are lists of features
+        model: ML model to fit and evaluate
+        X_train: Training df
+        y_train: Training target
+        X_val: Validation df
+        y_val: Validation target
+    Returns:
+        DataFrame with evaluation metrics for each feature set
+    """
+
+    # Store results
+    results = []
+    # Iterate over different data preprocessed dataframes
+    for key, (X_train, y_train, X_val, y_val) in dp_dict.items():
+        metrics = fit_evaluate(X_train, y_train, X_val, y_val, copy.deepcopy(model)) # copy to assure a fresh model each time
+
+        results.append({
+            "Data_Preprocessing": key,
+            **metrics
+        })
+
+    df = pd.DataFrame(results).set_index("Data_Preprocessing").sort_values("Val_MAE")
+    return df
