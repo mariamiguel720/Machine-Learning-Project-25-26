@@ -360,7 +360,8 @@ def data_preprocessing(df_fit, target_fit, df_to_apply, neighbors=5, imputation_
     Returns:
         X_apply: Preprocessed dataframe
     """
-
+    
+    # Create copies of the data to avoid modifying the originals
     X_fit = df_fit.copy()
     X_apply = df_to_apply.copy()
     y_fit = target_fit.copy()
@@ -370,14 +371,14 @@ def data_preprocessing(df_fit, target_fit, df_to_apply, neighbors=5, imputation_
     # If missing values imputation is KNN, scaling and encoding comes before imputation
     # Impute missing values
     if imputation_method == "simple":
-        X_apply = impute_missing(X_fit, X_apply, method="simple")
-        X_fit = impute_missing(X_fit, X_fit, method="simple")
+        X_apply = impute_missing(X_fit, X_apply, method="simple") 
+        X_fit = impute_missing(X_fit, X_fit, method="simple") # Impute missing values in the fit set so it can be used for encoding and scaling as fit reference
 
         X_apply = encoding_features(X_fit, y_fit, X_apply)
-        X_fit = encoding_features(X_fit, y_fit, X_fit)
+        X_fit = encoding_features(X_fit, y_fit, X_fit) # Encode categorical features so it can be used for scaling as fit reference
 
         X_apply = scaling_features(X_fit, X_apply, method=scaling_method)
-        X_fit = scaling_features(X_fit, X_fit, method=scaling_method)
+        X_fit = scaling_features(X_fit, X_fit, method=scaling_method) # Scale features so it can be used for future reference
 
     elif imputation_method == "knn":
         X_apply = encoding_features(X_fit, y_fit, X_apply)
