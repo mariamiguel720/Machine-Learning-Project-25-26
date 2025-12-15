@@ -287,6 +287,9 @@ def scaling_features(df_fit, df_to_apply, method):
         # Transform the the data from df_to_apply by applying the scale obtained in the previous command
         scaled_array = robust.transform(df_to_apply[metric_cols])
 
+    elif method == 'none':
+        return df_to_apply
+
     # Replace the original metric columns with the scaled values
     df_to_apply[metric_cols] = scaled_array
 
